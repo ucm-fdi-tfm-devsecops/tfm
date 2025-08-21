@@ -2,8 +2,9 @@ name: DevSecOps Pipeline
 
 on:
   workflow_dispatch:
-  push:
-    branches: ["main"]
+  # Para que se ejecute manual y con pull requests, descomentar lo de más abajo:
+  #pull_request:
+    #branches: ["main"]
 
 jobs:
   secrets-scan:
