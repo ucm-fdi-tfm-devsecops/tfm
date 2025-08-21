@@ -1,0 +1,27 @@
+name: DevSecOps Pipeline
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["main"]
+
+jobs:
+  secrets-scan:
+    uses: ./.github/actions/CI/Secrets_Scan.yml
+
+  sca:
+    needs: secrets-scan
+    uses: ./.github/actions/CI/SCA.yml
+
+  sast:
+    uses: ./.github/actions/CI/SAST.yml
+
+  image-scan:
+    uses: ./.github/actions/CI/Image_Scan.yml
+
+  container-signing:
+    needs: image-scan
+    uses: ./.github/actions/CI/Container_Signing.yml
+
+  iac-security:
+    uses: ./.github/actions/CI/IaC_Security.yml
