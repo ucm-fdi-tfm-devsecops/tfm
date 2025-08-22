@@ -16,7 +16,7 @@ jobs:
     uses: ./.github/workflows/SCA.yml
 
   sast:
-    needs: sca
+    needs: secrets-scan
     uses: ./.github/workflows/SAST.yml
 
   image-scan:
