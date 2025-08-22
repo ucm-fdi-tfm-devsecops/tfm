@@ -16,7 +16,7 @@ jobs:
     uses: ./.github/workflows/SAST.yml
 
   image-scan:
-    needs: sast
+    needs: sast,sca
     uses: ./.github/workflows/Image_Scan.yml
 
   container-signing:
