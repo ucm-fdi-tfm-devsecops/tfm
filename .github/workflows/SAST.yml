@@ -1,1 +1,18 @@
+name: SAST
 
+on:
+  workflow_call:
+
+jobs:
+  semgrep:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Run Semgrep
+        uses: returntocorp/semgrep-action@v1
+        with:
+          config: "p/ci"   # Conjunto de reglas recomendado para CI/CD
+          audit_on: push
+          error: true      # Falla si detecta vulnerabilidades
