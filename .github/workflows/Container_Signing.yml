@@ -1,1 +1,29 @@
+name: Container Signing
 
+on:
+  workflow_call:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  cosign-sign:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      # Build de la imagen (si no viene ya construida del job anterior)
+      #- name: Build Docker image
+       # run: |
+        #  docker build -t TFM-app:latest .
+
+      # Instalar cosign
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3.5.0
+
+      # Firmar imagen con Cosign (keyless usando OIDC de GitHub)
+      - name: Sign container image
+        run: |
+          cosign sign --yes TFM-app:latest
