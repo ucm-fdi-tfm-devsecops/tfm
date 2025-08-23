@@ -34,7 +34,7 @@ jobs:
         uses: actions/checkout@v4
       #  2. Build docker
       - name: Build Docker image
-        run: docker build -t $IMAGE_NAME -f /src/docker/Dockerfile .
+        run: docker build -t $IMAGE_NAME -f src/docker/Dockerfile .
       #  3. Scan the docker with trivy
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@0.20.0
