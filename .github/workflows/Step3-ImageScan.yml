@@ -3,11 +3,11 @@
 # https://www.aquasec.com/blog/devsecops-with-trivy-github-actions/
 
 # Name of the security step
-name: Scan image for vulnerabilities
+name: Step 3 - Image Scan
 
 # Environment variables
 env:
-  IMAGE_NAME: "TFM-app:latest"
+  IMAGE_NAME: "tfm-app:latest"
   TRIVY_SEVERITY: "CRITICAL,HIGH"
   TRIVY_VULN_TYPE: "os,library"
 
