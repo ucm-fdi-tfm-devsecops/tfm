@@ -1,0 +1,32 @@
+name: DevSecOps Pipeline
+
+on:
+  workflow_dispatch:
+
+permissions:
+  id-token: write     # necesario para cosign keyless
+  contents: read
+
+jobs:
+  secrets-scan:
+    uses: ./.github/workflows/Secrets_Scan.yml
+
+  sca:
+    needs: secrets-scan
+    uses: ./.github/workflows/SCA.yml
+
+  sast:
+    needs: secrets-scan
+    uses: ./.github/workflows/SAST.yml
+
+  image-scan:
+    needs: [sca, sast]
+    uses: ./.github/workflows/Step3-ImageScan.yml
+
+  container-signing:
+    needs: image-scan
+    uses: ./.github/workflows/Container_Signing.yml
+
+  iac-security:
+    needs: container-signing
+    uses: ./.github/workflows/IaC_Security.yml
