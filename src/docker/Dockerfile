@@ -2,7 +2,7 @@
 # It has been created with AI assistance.
 
 # Outdated/EOL base: many known CVEs
-FROM debian:9.2
+FROM debian:10
 
 LABEL maintainer="you@example.com"
 
