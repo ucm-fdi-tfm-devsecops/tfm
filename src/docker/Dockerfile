@@ -1,41 +1,52 @@
-# DVWA Dockerfile example
-# https://hub.docker.com/r/vulnerables/web-dvwa/dockerfile
+# This Dockerfile is intentionally vulnerable for testing purposes.
+# It has been created with AI assistance.
 
+# Outdated/EOL base: many known CVEs
 FROM debian:9.2
 
-LABEL maintainer "opsxcq@strm.sh"
+LABEL maintainer="you@example.com"
 
+# Hardcoded secrets in environment variables (secret scanners will flag them)
+ENV AWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE
+ENV AWS_SECRET_ACCESS_KEY=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
+ENV DB_PASSWORD="password123!"
+
+# Remote 'ADD' without checksum verification (supply-chain risk)
+#    (Downloads a public file just to trigger scanners)
+ADD https://raw.githubusercontent.com/github/gitignore/main/Java.gitignore /tmp/remote.txt
+
+# Packages without version pinning, no signature verification, and no cache cleanup
+# Installs unnecessary services (openssh-server) and networking tools
 RUN apt-get update && \
     apt-get upgrade -y && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y \
-    debconf-utils && \
-    echo mariadb-server mysql-server/root_password password vulnerables | debconf-set-selections && \
-    echo mariadb-server mysql-server/root_password_again password vulnerables | debconf-set-selections && \
-    DEBIAN_FRONTEND=noninteractive apt-get install -y \
-    apache2 \
-    mariadb-server \
-    php \
-    php-mysql \
-    php-pgsql \
-    php-pear \
-    php-gd \
-    && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+      curl wget ca-certificates \
+      openssh-server sudo \
+      netcat telnet \
+      python \
+    && mkdir -p /var/run/sshd
+# (deliberately NOT running 'rm -rf /var/lib/apt/lists/*')
 
-COPY php.ini /etc/php5/apache2/php.ini
-COPY dvwa /var/www/html
+WORKDIR /app
 
-COPY config.inc.php /var/www/html/config/
+# Copies entire context (risk of including .env, keys, build cache, etc.)
+COPY . /app
 
-RUN chown www-data:www-data -R /var/www/html && \
-    rm /var/www/html/index.html
+# Excessive permissions
+RUN chmod -R 777 /app
 
-RUN service mysql start && \
-    sleep 3 && \
-    mysql -uroot -pvulnerables -e "CREATE USER app@localhost IDENTIFIED BY 'vulnerables';CREATE DATABASE dvwa;GRANT ALL privileges ON dvwa.* TO 'app'@localhost;"
+# Enables root login via SSH with weak password
+RUN echo 'root:root' | chpasswd && \
+    sed -i 's/#\?PermitRootLogin .*/PermitRootLogin yes/' /etc/ssh/sshd_config && \
+    sed -i 's/#\?PasswordAuthentication .*/PasswordAuthentication yes/' /etc/ssh/sshd_config
 
-EXPOSE 80
+# Creates a fake private key inside the image (secret scanners will detect it)
+RUN mkdir -p /root/.ssh && \
+    printf "-----BEGIN PRIVATE KEY-----\nMIIB...FAKE...KEY\n-----END PRIVATE KEY-----\n" > /root/.ssh/id_rsa && \
+    chmod 600 /root/.ssh/id_rsa
 
-COPY main.sh /
-ENTRYPOINT ["/main.sh"]
+# Exposes unnecessary ports
+EXPOSE 22 8080
+
+# Runs as root (no non-root USER specified)
+CMD ["/usr/sbin/sshd","-D"]
