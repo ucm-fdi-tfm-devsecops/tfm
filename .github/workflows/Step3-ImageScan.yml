@@ -1,0 +1,43 @@
+# 
+# Reference from:
+# https://www.aquasec.com/blog/devsecops-with-trivy-github-actions/
+
+# Name of the security step
+name: Scan image for vulnerabilities
+
+# When is it going to activate
+on:
+  # On demand
+  workflow_call:
+  # And when the father calls
+  workflow_dispatch:
+
+# What is going to do
+jobs:
+  # Name of the job
+  trivy-scan:
+    # Machine of GitHub - Microsoft 
+    runs-on: ubuntu-latest
+    # Steps:
+    #  1. Download repo on the VM
+    #  2. Build docker
+    #  3. Scan the docker with trivy
+    steps:
+      #  1. Download repo on the VM
+      - name: Checkout repo
+        uses: actions/checkout@v4
+      #  2. Build docker
+      - name: Build Docker image
+        # docker build      -> build image
+        # -t <name>:<tag>   -> id
+        # .                 -> directory
+        run: docker build -t TFM-app:latest .
+      #  3. Scan the docker with trivy
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@0.20.0
+        with:
+          image-ref: TFM-app:latest
+          format: table
+          exit-code: 1
+          vuln-type: 'os,library' 
+          severity: 'CRITICAL,HIGH'
