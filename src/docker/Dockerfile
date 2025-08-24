@@ -2,7 +2,7 @@
 # It has been created with AI assistance.
 
 # Outdated/EOL base: many known CVEs
-FROM debian:10
+FROM debian:11
 
 LABEL maintainer="you@example.com"
 
@@ -17,14 +17,14 @@ ADD https://raw.githubusercontent.com/github/gitignore/main/Java.gitignore /tmp/
 
 # Packages without version pinning, no signature verification, and no cache cleanup
 # Installs unnecessary services (openssh-server) and networking tools
-RUN apt-get update && \
-    apt-get upgrade -y && \
-    DEBIAN_FRONTEND=noninteractive apt-get install -y \
+RUN apt-get update \
+ && apt-get -y upgrade \
+ && DEBIAN_FRONTEND=noninteractive apt-get install -y \
       curl wget ca-certificates \
       openssh-server sudo \
-      netcat telnet \
-      python \
-    && mkdir -p /var/run/sshd
+      netcat-openbsd telnet \
+      python3 python-is-python3 \
+ && mkdir -p /var/run/sshd
 # (deliberately NOT running 'rm -rf /var/lib/apt/lists/*')
 
 WORKDIR /app
@@ -42,7 +42,7 @@ RUN echo 'root:root' | chpasswd && \
 
 # Creates a fake private key inside the image (secret scanners will detect it)
 RUN mkdir -p /root/.ssh && \
-    printf "-----BEGIN PRIVATE KEY-----\nMIIB...FAKE...KEY\n-----END PRIVATE KEY-----\n" > /root/.ssh/id_rsa && \
+    printf '%s\n%s\n%s\n' '-----BEGIN PRIVATE KEY-----' 'MIIB...FAKE...KEY' '-----END PRIVATE KEY-----' > /root/.ssh/id_rsa && \
     chmod 600 /root/.ssh/id_rsa
 
 # Exposes unnecessary ports
