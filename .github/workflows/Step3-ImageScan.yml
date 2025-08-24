@@ -1,5 +1,4 @@
-# 
-# Reference from:
+# # Reference from:
 # https://www.aquasec.com/blog/devsecops-with-trivy-github-actions/
 
 # Name of the security step
@@ -19,11 +18,16 @@ on:
   # And when the father calls
   workflow_dispatch:
 
+# Permissions
+permissions:
+  contents: read
+  security-events: write
+
 # What is going to do
 jobs:
   # Name of the job
   trivy-scan:
-    # Machine of GitHub - Microsoft 
+    # Machine of GitHub - Microsoft where the job will be executed
     runs-on: ubuntu-latest
     # Steps:
     #  1. Download repo on the VM
@@ -40,22 +44,24 @@ jobs:
         run: docker build -t ${{ env.IMAGE_NAME }} -f src/docker/Dockerfile .
       #  3. Scan the docker with trivy
       - name: Run Trivy vulnerability scanner
+        id: trivy-scan
         uses: aquasecurity/trivy-action@0.20.0
         with:
           image-ref: ${{ env.IMAGE_NAME }}
-          format: table
-          exit-code: 1
           vuln-type: ${{ env.TRIVY_VULN_TYPE }}
           severity: ${{ env.TRIVY_SEVERITY }}
+          output: ${{ env.TRIVY_OUTPUT }}
+          format: sarif
+          exit-code: 1
       #  4. Export to Code Scanning Alerts
-      - name: Export to Code Scanning Alerts
-        uses: github/codeql-action/upload-sarif@v2
-        with:
-          category: security
-          output: imagescan-results.sarif
+      #- name: Export to Code Scanning Alerts
+      #  uses: github/codeql-action/upload-sarif@v2
+      #  with:
+      #    category: security
+      #    output: imagescan-results.sarif
       #  5. Upload raw SARIF as artifact
-      - name: Upload raw SARIF as artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: trivy-sarif-raw
-          path: ${{ env.TRIVY_OUTPUT }}
+      #- name: Upload raw SARIF as artifact
+      #  uses: actions/upload-artifact@v4
+      #  with:
+      #    name: trivy-sarif-raw
+      #    path: ${{ env.TRIVY_OUTPUT }}
