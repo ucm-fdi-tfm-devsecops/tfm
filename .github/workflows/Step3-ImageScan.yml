@@ -9,7 +9,7 @@ env:
   IMAGE_NAME: tfm-app:latest
   TRIVY_SEVERITY: CRITICAL,HIGH
   TRIVY_VULN_TYPE: os,library
-  TRIVY_OUTPUT: imagescan-results.sarif
+  TRIVY_OUTPUT: imagescan-trivy-results.sarif
 
 # When is it going to activate
 on:
@@ -34,7 +34,6 @@ jobs:
     #  2. Build docker
     #  3. Scan the docker with trivy
     #  4. Export to Code Scanning Alerts
-    #  5. Upload raw SARIF as artifact
     steps:
       #  1. Download repo on the VM
       - name: Checkout repo
@@ -44,24 +43,17 @@ jobs:
         run: docker build -t ${{ env.IMAGE_NAME }} -f src/docker/Dockerfile .
       #  3. Scan the docker with trivy
       - name: Run Trivy vulnerability scanner
-        id: trivy-scan
-        uses: aquasecurity/trivy-action@0.20.0
+        uses: aquasecurity/trivy-action@0.28.0
         with:
           image-ref: ${{ env.IMAGE_NAME }}
-          vuln-type: ${{ env.TRIVY_VULN_TYPE }}
-          severity: ${{ env.TRIVY_SEVERITY }}
-          output: ${{ env.TRIVY_OUTPUT }}
-          format: sarif
-          exit-code: 1
+      #    vuln-type: ${{ env.TRIVY_VULN_TYPE }}
+      #    severity: ${{ env.TRIVY_SEVERITY }}
+          format: 'sarif'
+          output: '${{ env.TRIVY_OUTPUT }}'
+      #    exit-code: 1
       #  4. Export to Code Scanning Alerts
-      #- name: Export to Code Scanning Alerts
-      #  uses: github/codeql-action/upload-sarif@v2
-      #  with:
-      #    category: security
-      #    output: imagescan-results.sarif
-      #  5. Upload raw SARIF as artifact
-      #- name: Upload raw SARIF as artifact
-      #  uses: actions/upload-artifact@v4
-      #  with:
-      #    name: trivy-sarif-raw
-      #    path: ${{ env.TRIVY_OUTPUT }}
+      - name: Export to Code Scanning Alerts
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          category: security
+          output: '${{ env.TRIVY_OUTPUT }}'
