@@ -28,6 +28,7 @@ jobs:
     #  1. Download repo on the VM
     #  2. Build docker
     #  3. Scan the docker with trivy
+    #  4. Export to Code Scanning Alerts
     steps:
       #  1. Download repo on the VM
       - name: Checkout repo
@@ -44,3 +45,9 @@ jobs:
           exit-code: 1
           vuln-type: ${{ env.TRIVY_VULN_TYPE }}
           severity: ${{ env.TRIVY_SEVERITY }}
+      #  4. Export to Code Scanning Alerts
+      - name: Export to Code Scanning Alerts
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          category: security
+          output: imagescan-results.sarif
