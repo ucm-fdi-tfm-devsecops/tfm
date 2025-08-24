@@ -10,6 +10,7 @@ env:
   IMAGE_NAME: tfm-app:latest
   TRIVY_SEVERITY: CRITICAL,HIGH
   TRIVY_VULN_TYPE: os,library
+  TRIVY_OUTPUT: imagescan-results.sarif
 
 # When is it going to activate
 on:
@@ -29,6 +30,7 @@ jobs:
     #  2. Build docker
     #  3. Scan the docker with trivy
     #  4. Export to Code Scanning Alerts
+    #  5. Upload raw SARIF as artifact
     steps:
       #  1. Download repo on the VM
       - name: Checkout repo
@@ -51,3 +53,9 @@ jobs:
         with:
           category: security
           output: imagescan-results.sarif
+      #  5. Upload raw SARIF as artifact
+      - name: Upload raw SARIF as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-sarif-raw
+          path: ${{ env.TRIVY_OUTPUT }}
