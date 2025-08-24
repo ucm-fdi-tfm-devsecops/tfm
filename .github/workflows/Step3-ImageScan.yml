@@ -7,9 +7,9 @@ name: Step 3 - Image Scan
 # Environment variables
 env:
   IMAGE_NAME: tfm-app:latest
-  TRIVY_SEVERITY: CRITICAL,HIGH
-  TRIVY_VULN_TYPE: os,library
-  TRIVY_OUTPUT: imagescan-trivy-results.sarif
+#  TRIVY_OUTPUT: 
+#  TRIVY_SEVERITY:
+#  TRIVY_VULN_TYPE: 
 
 # When is it going to activate
 on:
@@ -29,11 +29,6 @@ jobs:
   trivy-scan:
     # Machine of GitHub - Microsoft where the job will be executed
     runs-on: ubuntu-latest
-    # Steps:
-    #  1. Download repo on the VM
-    #  2. Build docker
-    #  3. Scan the docker with trivy
-    #  4. Export to Code Scanning Alerts
     steps:
       #  1. Download repo on the VM
       - name: Checkout repo
@@ -45,15 +40,17 @@ jobs:
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@0.28.0
         with:
+          scan-type: 'image'
           image-ref: ${{ env.IMAGE_NAME }}
-      #    vuln-type: ${{ env.TRIVY_VULN_TYPE }}
-      #    severity: ${{ env.TRIVY_SEVERITY }}
           format: 'sarif'
-          output: '${{ env.TRIVY_OUTPUT }}'
-      #    exit-code: 1
+          output: 'imagescan-trivy-results.sarif'
+          exit-code: 0
+          vuln-type: 'os,library'
+          severity: 'UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL'
+          scannners: 'vuln,miscofig'
       #  4. Export to Code Scanning Alerts
-      - name: Export to Code Scanning Alerts
+      - name: Upload Trivy scan results to GitHub Security tab
         uses: github/codeql-action/upload-sarif@v3
+        if: always()
         with:
-          category: security
-          output: '${{ env.TRIVY_OUTPUT }}'
+          sarif_file: 'imagescan-trivy-results.sarif'
