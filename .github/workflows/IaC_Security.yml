@@ -1,4 +1,4 @@
-name: IaC Security
+name: Step 5 - IaC Security
 
 on:
   workflow_call:
