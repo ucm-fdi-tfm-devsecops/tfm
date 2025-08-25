@@ -1,49 +1,76 @@
-name: Container Signing
+# Nombre descriptivo del workflow
+name: Trivy Scan + Cosign Signing (Keyless, GHCR)
 
+# Eventos que activan el workflow:
+# - Manualmente desde la UI (workflow_dispatch)
+# - Desde otro workflow (workflow_call)
 on:
-  workflow_call:
   workflow_dispatch:
+  workflow_call:
 
+# Permisos que el GITHUB_TOKEN necesitará para este flujo:
 permissions:
-  id-token: write  # para cosign keyless (Fulcio/OIDC)
-  packages: write # para push a GHCR
-  contents: read
+  id-token: write      # Necesario para autenticarse vía OIDC con Cosign
+  packages: write      # Necesario para subir la imagen al registro GHCR
+  contents: read       # Permite leer el código del repositorio
 
 jobs:
-  cosign-sign:
-    runs-on: ubuntu-latest
+  scan-and-sign:
+    runs-on: ubuntu-latest  # Utilizamos Ubuntu como runner porque es más compatible con contenedores y herramientas DevSecOps
+
     steps:
-      - name: Checkout repo
+      # 1️⃣ Clonamos el repositorio en el runner para tener acceso al código fuente y al Dockerfile
+      - name: Checkout repository
         uses: actions/checkout@v4
-      
-      # Log in to GHCR
-      - name: Log in to GHCR
-        run: echo "${{ github.token }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-        
-      # Build de la imagen (si no viene ya construida del job anterior)
-      - name: Build Docker image
+
+      # 2️⃣ Login a GHCR usando GITHUB_TOKEN (esto permite hacer push al container registry)
+      - name: Login to GitHub Container Registry (GHCR)
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      # 3️⃣ Definimos la variable IMAGE con el nombre y etiqueta que usaremos para la imagen
+      - name: Define image name
         run: |
           IMAGE=ghcr.io/${{ github.repository_owner }}/tfm-app:${{ github.sha }}
-          docker build -t $IMAGE -f src/docker/Dockerfile .
           echo "IMAGE=$IMAGE" >> $GITHUB_ENV
 
-      # Push image to GHCR
-      - name: Push image
+      # 4️⃣ Construimos la imagen Docker desde un Dockerfile en el proyecto
+      - name: Build Docker image
+        run: docker build -t $IMAGE -f src/docker/Dockerfile .
+
+      # 5️⃣ Instalamos Trivy (escáner de vulnerabilidades) usando el instalador oficial
+      - name: Install Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: image           # Tipo de análisis: imagen de contenedor
+          image-ref: ${{ env.IMAGE }} # Usamos la imagen recién construida
+          format: json               # Guardamos el informe en formato JSON
+          output: trivy-report.json  # Nombre del archivo de salida
+
+      # 6️⃣ Subimos el reporte de Trivy como artefacto descargable desde la UI de Actions
+      - name: Upload Trivy Scan Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-scan-report
+          path: trivy-report.json
+          if-no-files-found: ignore
+
+      # 7️⃣ Subimos la imagen escaneada a GHCR
+      - name: Push Docker image to GHCR
         run: docker push $IMAGE
 
-        # Get image digest
+      # 8️⃣ Obtenemos el digest (hash único e inmutable) de la imagen recién subida
       - name: Get image digest
-        id: dig
+        id: digest
         run: |
           DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' $IMAGE)
           echo "DIGEST=$DIGEST" >> $GITHUB_ENV
           echo "digest=$DIGEST" >> $GITHUB_OUTPUT
-        
-      # Instalar cosign
-      - name: Install cosign
+
+      # 9️⃣ Instalamos Cosign (herramienta para firmar imágenes OCI)
+      - name: Install Cosign
         uses: sigstore/cosign-installer@v3.5.0
 
-      # Firmar imagen con Cosign (keyless usando OIDC de GitHub)
-      - name: Sign container image
-        run: |
-          cosign sign --yes $DIGEST
+      # 🔟 Firmamos la imagen usando autenticación sin claves (keyless) a través de OIDC (usando el token ID de GitHub Actions)
+      - name: Sign Docker image with Cosign (Keyless)
+        run: cosign sign --yes $DIGEST
