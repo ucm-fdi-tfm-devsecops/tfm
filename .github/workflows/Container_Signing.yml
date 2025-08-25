@@ -1,5 +1,5 @@
 # Nombre descriptivo del workflow
-name: Trivy Scan + Cosign Signing (Keyless, GHCR)
+name: Step 4 - Trivy Scan + Cosign Signing (Keyless, GHCR)
 
 # Eventos que activan el workflow:
 # - Manualmente desde la UI (workflow_dispatch)
