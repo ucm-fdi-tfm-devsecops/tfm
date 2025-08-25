@@ -1,4 +1,4 @@
-name: SCA
+name: Step 2.1 - SCA
 
 on:
   workflow_call:
