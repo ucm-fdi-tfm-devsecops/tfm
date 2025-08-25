@@ -6,6 +6,7 @@ on:
 permissions:
   id-token: write     # necesario para cosign keyless
   contents: read
+  packages: write     # Container Signing requirement
   security-events: write
 
 jobs:
