@@ -1,4 +1,4 @@
-name: Step 2.2 - SAST
+name: SAST - Semgrep
 
 on:
   workflow_dispatch:
@@ -20,8 +20,7 @@ jobs:
       - name: Run Semgrep SAST
         run: |
           mkdir -p results
-          # Escanea todo el repo, no una carpeta fija
-          semgrep scan --config auto --sarif . > results/semgrep-results.sarif || echo '{}' > results/semgrep-results.sarif
+          semgrep scan --config auto --sarif --output results/semgrep-results.sarif .
 
       - name: Upload SARIF results as artifact
         uses: actions/upload-artifact@v4
