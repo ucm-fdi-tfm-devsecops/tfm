@@ -1,4 +1,4 @@
-name: SAST - Semgrep
+name: Step 2.2 - SAST
 
 on:
   workflow_dispatch:
