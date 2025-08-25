@@ -6,9 +6,6 @@ on:
   workflow_call: {}
   # Scan on-demand through GitHub Actions interface:
   workflow_dispatch: {}
-  # Scan mainline branches and report all findings:
-  push:
-    branches: ["master", "main"]
 
 jobs:
   semgrep_scan:
