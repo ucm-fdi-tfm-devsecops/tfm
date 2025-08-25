@@ -16,9 +16,8 @@ jobs:
         uses: actions/checkout@v4
 
       # Build de la imagen (si no viene ya construida del job anterior)
-      #- name: Build Docker image
-       # run: |
-        #  docker build -t TFM-app:latest .
+      - name: Build Docker image
+        run: docker build -t tfm-app:latest -f src/docker/Dockerfile .
 
       # Instalar cosign
       - name: Install cosign
@@ -27,4 +26,4 @@ jobs:
       # Firmar imagen con Cosign (keyless usando OIDC de GitHub)
       - name: Sign container image
         run: |
-          cosign sign --yes TFM-app:latest
+          cosign sign --yes tfm-app:latest
