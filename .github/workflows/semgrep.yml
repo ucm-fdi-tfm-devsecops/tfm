@@ -33,6 +33,7 @@ jobs:
       # or use multiple flags to specify particular rules, such as
       # --config r/all --config custom/rules
         run: semgrep scan -q --sarif --config auto ./vulnerable-source-code > semgrep-results.sarif
+        continue-on-error: true
 
       # upload the results for the CodeQL GitHub app to annotate the code
       - name: Save SARIF results as artifact
