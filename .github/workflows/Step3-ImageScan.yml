@@ -46,8 +46,8 @@ jobs:
           output: 'imagescan-trivy-results.sarif'
           exit-code: 0
           vuln-type: 'os,library'
-          severity: 'UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL'
-          scannners: 'vuln,miscofig'
+          severity: 'HIGH,CRITICAL'
+          scanners: 'vuln,miscofig'
       #  4. Export to Code Scanning Alerts
       - name: Upload Trivy scan results to GitHub Security tab
         uses: github/codeql-action/upload-sarif@v3
