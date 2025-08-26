@@ -44,7 +44,7 @@ jobs:
           image-ref: ${{ env.IMAGE_NAME }}
           format: 'sarif'
           output: 'imagescan-trivy-results.sarif'
-          exit-code: 0
+          exit-code: 1
           vuln-type: 'os,library'
           severity: 'CRITICAL'
           scanners: 'vuln,misconfig'
