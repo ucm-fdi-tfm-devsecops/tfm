@@ -25,13 +25,8 @@ jobs:
           mkdir -p results
           semgrep scan --config auto --sarif --output results/semgrep-results.sarif .
 
-      - name: Upload SARIF results as artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: semgrep-sast-results
-          path: results/semgrep-results.sarif
-
       - name: Upload SARIF to GitHub Security Dashboard
         uses: github/codeql-action/upload-sarif@v3
+        if: always()
         with:
           sarif_file: results/semgrep-results.sarif
