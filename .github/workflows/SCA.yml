@@ -1,20 +1,25 @@
-name: Step 2.1 - SCA
+name: Step 2.1 - SCA # Nombre descriptivo que se visualizará en el menú de actions una vez se lance el workflow.
 
 on:
-  workflow_call:
-  workflow_dispatch:
+  workflow_call: # Para que otros workflows puedan llamarlo.
+  workflow_dispatch: # Para lanzar unicamente el workflow de manera manual.
 
-jobs:
-  dependency-check:
-    runs-on: ubuntu-latest
-    steps:
+jobs: # Se usa para definir uno o más trabajos a ejecutar en el workflow.
+  dependency-check: # ID interno del job para poder referenciarlo o establecer depoendencias con/en otros jobs.
+    runs-on: ubuntu-latest # Indica en qué tipo de runner (maquina virtual) se va a ejecutar este job.
+    
+    steps: # Se usa para definir el paso o los pasos que se deben ejecutar, uno a uno y en orden, para realizar el job.
+    
       - name: Checkout repo
+      # Descargamos el codigo del repositorio en el runner de GitHub Actions para que los siguientes steps tengan acceso.
         uses: actions/checkout@v4
 
       - name: Run OWASP Dependency-Check
+      # Usamos la acción oficial de GitHub para ejecutar OWASP Dependency-Check
         uses: dependency-check/Dependency-Check_Action@main
+        
         with:
-          project: "TFM"
-          path: "."
-          format: "HTML"
-          out: "reports"
+          project: "tfm" # Definimos el nombre del proyecto en los reportes, aparecerá como una etiqueta en el informe generado.
+          path: "." # Especificamos la ruta del código a analizar, en este caso la raíz del repositorio.
+          format: "HTML" # Indicamos el formato de salida del reporte
+          out: "reports" # Definimos la carpeta de salida donde se guardará el reporte (se guardaría como "reports/dependency-check-report.html")
