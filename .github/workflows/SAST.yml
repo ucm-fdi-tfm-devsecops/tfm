@@ -1,10 +1,10 @@
 name: Step 2.2 - SAST # Nombre descriptivo que se visualizará en el menú de actions una vez se lance el workflow.
 
 on:
-  workflow_dispatch: # Para lanzar unicamente el workflow de manera manual.
   workflow_call: # Para que otros workflows puedan llamarlo.
+  workflow_dispatch: # Para lanzar unicamente el workflow de manera manual.
 
-jobs: # Se usa parra definir uno o más trabajos a ejecutar en el workflow.
+jobs: # Se usa para definir uno o más trabajos a ejecutar en el workflow.
   semgrep-sast: # ID interno del job para poder referenciarlo o establecer depoendencias con/en otros jobs.
     name: Semgrep SAST Analysis
     runs-on: ubuntu-latest # Indica en qué tipo de runner (maquina virtual) se va a ejecutar este job.
