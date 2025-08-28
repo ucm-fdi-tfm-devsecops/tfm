@@ -4,79 +4,109 @@ on:
   workflow_dispatch:
     inputs:
       registry:
-        description: "Container registry"
+        description: "Container registry (ghcr.io, docker.io, ...)"
         required: true
         default: "ghcr.io"
       image_name:
-        description: "Image name"
+        description: "Image name (org/repo o usuario/imagen)"
         required: true
         default: "your-org/your-app"
+      image_tar:
+        description: "Nombre del artifact de la imagen"
+        required: true
+        default: "docker-image.tar"
 
 permissions:
-  id-token: write
+  id-token: write        # para cosign keyless si lo usas
   contents: read
   packages: write
   security-events: write
 
 jobs:
+  # 1) Secrets
   secrets-scan:
     uses: ./.github/workflows/Secrets_Scan.yml
+    with:
+      fail_on_findings: false
+    secrets: inherit
 
+  # 2) SCA, SAST, IaC (en paralelo; dependen de Secrets)
   sca:
     needs: secrets-scan
     uses: ./.github/workflows/SCA.yml
+    with:
+      format: "sarif"
+      severity: "HIGH,CRITICAL"
+    secrets: inherit
 
   sast:
     needs: secrets-scan
     uses: ./.github/workflows/SAST.yml
+    with:
+      generateSarif: true
+    secrets: inherit
 
   iac-security:
     needs: secrets-scan
     uses: ./.github/workflows/IaC_Security.yml
+    with:
+      output_format: "sarif"
+    secrets: inherit
 
+  # 3) Docker build + 4) subir artifact (.tar)
   docker-build:
     needs: [sca, sast, iac-security]
     uses: ./.github/workflows/Docker_Build.yml
     with:
-      registry: ${{ github.event.inputs.registry }}
+      registry:  ${{ github.event.inputs.registry }}
       image_name: ${{ github.event.inputs.image_name }}
-      image_tag: ${{ github.sha }}
-      image_tar: docker-image.tar
+      image_tag:  ${{ github.sha }}
+      image_tar:  ${{ github.event.inputs.image_tar }}
+    secrets: inherit
 
+  # 5) Descargar artifact (.tar)
   download-image-artifact-1:
     needs: docker-build
     uses: ./.github/workflows/Download_Docker_Artifact.yml
     with:
-      image_tar: docker-image.tar
+      image_tar: ${{ github.event.inputs.image_tar }}
+    secrets: inherit
 
+  # 6) Image scan
   image-scan:
     needs: download-image-artifact-1
     uses: ./.github/workflows/ImageScan.yml
     with:
-      registry: ${{ github.event.inputs.registry }}
+      registry:  ${{ github.event.inputs.registry }}
       image_name: ${{ github.event.inputs.image_name }}
-      image_tag: ${{ github.sha }}
+      image_tag:  ${{ github.sha }}
+      exit_code_on_findings: 0   # pon 1 si quieres gate
+    secrets: inherit
 
+  # 7) Descargar de nuevo el artifact (.tar) para firmar
   download-image-artifact-2:
     needs: image-scan
     uses: ./.github/workflows/Download_Docker_Artifact.yml
     with:
-      image_tar: docker-image.tar
+      image_tar: ${{ github.event.inputs.image_tar }}
+    secrets: inherit
 
+  # 8) Container signing
   container-signing:
     needs: download-image-artifact-2
     uses: ./.github/workflows/Container_Signing.yml
     with:
-      registry: ${{ github.event.inputs.registry }}
+      registry:  ${{ github.event.inputs.registry }}
       image_name: ${{ github.event.inputs.image_name }}
-      image_tag: ${{ github.sha }}
+      image_tag:  ${{ github.sha }}
     secrets: inherit
 
+  # 9) Push de la imagen firmada
   push-signed:
     needs: container-signing
     uses: ./.github/workflows/Push_Signed.yml
     with:
-      registry: ${{ github.event.inputs.registry }}
+      registry:  ${{ github.event.inputs.registry }}
       image_name: ${{ github.event.inputs.image_name }}
-      image_tag: ${{ github.sha }}
+      image_tag:  ${{ github.sha }}
     secrets: inherit
