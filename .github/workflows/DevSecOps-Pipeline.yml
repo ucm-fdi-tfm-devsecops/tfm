@@ -23,12 +23,28 @@ permissions:
   security-events: write
 
 jobs:
-  # --- Columna 1: corren a la vez ---
+  # --- 1ª columna ---
   secrets-scan:
     uses: ./.github/workflows/Secrets_Scan.yml
     secrets: inherit
 
-docker-build:
+  sca:
+    needs: secrets-scan
+    uses: ./.github/workflows/SCA.yml
+    secrets: inherit
+
+  sast:
+    needs: secrets-scan
+    uses: ./.github/workflows/SAST.yml
+    secrets: inherit
+
+  iac-security:
+    needs: secrets-scan
+    uses: ./.github/workflows/IaC_Security.yml
+    secrets: inherit
+
+  # --- Docker build espera a que acaben sca/sast/iac ---
+  docker-build:
     needs: [sca, sast, iac-security]
     uses: ./.github/workflows/Docker_Build.yml
     with:
@@ -36,26 +52,11 @@ docker-build:
       image_name: ${{ github.event.inputs.image_name }}
       image_tag:  ${{ github.sha }}
       image_tar:  ${{ github.event.inputs.image_tar }}
-    secrets: inherit
+    secrets:
+      REGISTRY_USERNAME: ${{ secrets.REGISTRY_USERNAME }}
+      REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
 
-
-  # --- Barrier: todo lo demás espera a que ACABEN ambos (✔✔) ---
-  sca:
-    needs: [secrets-scan, docker-build]
-    uses: ./.github/workflows/SCA.yml
-    secrets: inherit
-
-  sast:
-    needs: [secrets-scan, docker-build]
-    uses: ./.github/workflows/SAST.yml
-    secrets: inherit
-
-  iac-security:
-    needs: [secrets-scan, docker-build]
-    uses: ./.github/workflows/IaC_Security.yml
-    secrets: inherit
-
-  # Descarga el artifact de la imagen solo cuando secrets y build han acabado
+  # --- Download necesita que Secrets y Build hayan acabado ---
   download-image-artifact-1:
     needs: [secrets-scan, docker-build]
     uses: ./.github/workflows/Download_Docker_Artifact.yml
@@ -67,11 +68,9 @@ docker-build:
     needs: download-image-artifact-1
     uses: ./.github/workflows/ImageScan.yml
     with:
-      registry:  ${{ github.event.inputs.registry }}
+      registry:   ${{ github.event.inputs.registry }}
       image_name: ${{ github.event.inputs.image_name }}
       image_tag:  ${{ github.sha }}
-      # si tu ImageScan.yml no define este input, quita la línea:
-      # exit_code_on_findings: 0
     secrets: inherit
 
   download-image-artifact-2:
@@ -85,7 +84,7 @@ docker-build:
     needs: download-image-artifact-2
     uses: ./.github/workflows/Container_Signing.yml
     with:
-      registry:  ${{ github.event.inputs.registry }}
+      registry:   ${{ github.event.inputs.registry }}
       image_name: ${{ github.event.inputs.image_name }}
       image_tag:  ${{ github.sha }}
     secrets: inherit
@@ -94,7 +93,7 @@ docker-build:
     needs: container-signing
     uses: ./.github/workflows/Push_Signed.yml
     with:
-      registry:  ${{ github.event.inputs.registry }}
+      registry:   ${{ github.event.inputs.registry }}
       image_name: ${{ github.event.inputs.image_name }}
       image_tag:  ${{ github.sha }}
     secrets: inherit
