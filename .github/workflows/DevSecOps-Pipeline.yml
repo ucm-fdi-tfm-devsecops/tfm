@@ -2,103 +2,81 @@ name: DevSecOps Pipeline
 
 on:
   workflow_dispatch:
+    inputs:
+      registry:
+        description: "Container registry"
+        required: true
+        default: "ghcr.io"
+      image_name:
+        description: "Image name"
+        required: true
+        default: "your-org/your-app"
 
 permissions:
-  id-token: write       # necesario para cosign keyless (si lo usas)
+  id-token: write
   contents: read
-  packages: write       # push a registry
+  packages: write
   security-events: write
 
-# Parámetros comunes (los pasamos a los workflows reutilizables vía "with")
-env:
-  REGISTRY: ghcr.io                # o docker.io
-  IMAGE_NAME: your-org/your-app    # cámbialo
-  IMAGE_TAG: ${{ github.sha }}     # etiqueta por commit
-  IMAGE_TAR: docker-image.tar      # nombre del artifact
-
 jobs:
-  # 1) Secrets
   secrets-scan:
     uses: ./.github/workflows/Secrets_Scan.yml
-    with:
-      # si tu Secrets_Scan.yml acepta inputs, pásalos aquí (opcional)
-      # p.ej: config_path: ".gitleaks.toml"
-      fail_on_findings: false
 
-  # 2) SCA, SAST, IaC Security (en paralelo; todos dependen de Secrets)
   sca:
     needs: secrets-scan
     uses: ./.github/workflows/SCA.yml
-    with:
-      format: "sarif"
-      severity: "HIGH,CRITICAL"
 
   sast:
     needs: secrets-scan
     uses: ./.github/workflows/SAST.yml
-    with:
-      generateSarif: true
 
   iac-security:
     needs: secrets-scan
     uses: ./.github/workflows/IaC_Security.yml
-    with:
-      output_format: "sarif"
 
-  # 3) Docker build + 4) subir artifact (.tar)
   docker-build:
     needs: [sca, sast, iac-security]
     uses: ./.github/workflows/Docker_Build.yml
     with:
-      registry: ${{ env.REGISTRY }}
-      image_name: ${{ env.IMAGE_NAME }}
-      image_tag: ${{ env.IMAGE_TAG }}
-      image_tar: ${{ env.IMAGE_TAR }}
-      # este workflow debe: construir la imagen, guardarla con `docker save` y subirla como artifact `${{ inputs.image_tar }}`
+      registry: ${{ github.event.inputs.registry }}
+      image_name: ${{ github.event.inputs.image_name }}
+      image_tag: ${{ github.sha }}
+      image_tar: docker-image.tar
 
-  # 5) Descargar artifact (.tar)
   download-image-artifact-1:
     needs: docker-build
     uses: ./.github/workflows/Download_Docker_Artifact.yml
     with:
-      image_tar: ${{ env.IMAGE_TAR }}
-      # este workflow debe: descargar el artifact y hacer `docker load -i ${{ inputs.image_tar }}`
+      image_tar: docker-image.tar
 
-  # 6) Image scan (usa la imagen cargada en el job anterior)
   image-scan:
     needs: download-image-artifact-1
     uses: ./.github/workflows/ImageScan.yml
     with:
-      registry: ${{ env.REGISTRY }}
-      image_name: ${{ env.IMAGE_NAME }}
-      image_tag: ${{ env.IMAGE_TAG }}
-      exit_code_on_findings: 0    # pon 1 si quieres que falle con vulnerabilidades
+      registry: ${{ github.event.inputs.registry }}
+      image_name: ${{ github.event.inputs.image_name }}
+      image_tag: ${{ github.sha }}
 
-  # 7) Descargar (de nuevo) el artifact (.tar) para la firma
   download-image-artifact-2:
     needs: image-scan
     uses: ./.github/workflows/Download_Docker_Artifact.yml
     with:
-      image_tar: ${{ env.IMAGE_TAR }}
+      image_tar: docker-image.tar
 
-  # 8) Container signing
   container-signing:
     needs: download-image-artifact-2
     uses: ./.github/workflows/Container_Signing.yml
     with:
-      registry: ${{ env.REGISTRY }}
-      image_name: ${{ env.IMAGE_NAME }}
-      image_tag: ${{ env.IMAGE_TAG }}
-      # este workflow debe: (opcional) docker push unsigned, cosign sign, cosign verify
-    secrets: inherit   # pasa secretos (COSIGN_*, credenciales registry) al workflow reutilizable
+      registry: ${{ github.event.inputs.registry }}
+      image_name: ${{ github.event.inputs.image_name }}
+      image_tag: ${{ github.sha }}
+    secrets: inherit
 
-  # 9) Push de la imagen firmada al registry
   push-signed:
     needs: container-signing
     uses: ./.github/workflows/Push_Signed.yml
     with:
-      registry: ${{ env.REGISTRY }}
-      image_name: ${{ env.IMAGE_NAME }}
-      image_tag: ${{ env.IMAGE_TAG }}
+      registry: ${{ github.event.inputs.registry }}
+      image_name: ${{ github.event.inputs.image_name }}
+      image_tag: ${{ github.sha }}
     secrets: inherit
-
