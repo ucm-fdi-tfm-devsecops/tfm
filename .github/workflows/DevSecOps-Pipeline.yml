@@ -10,7 +10,7 @@ on:
       image_name:
         description: "Image name (org/repo o usuario/imagen)"
         required: true
-        default: "ucm-fdi-tfm-devsecops/tfm-app"
+        default: "your-org/your-app"
       image_tar:
         description: "Nombre del artifact de la imagen"
         required: true
@@ -23,10 +23,24 @@ permissions:
   security-events: write
 
 jobs:
+  # --- ARRANQUE EN PARALELO ---
+  # 1) Secrets
   secrets-scan:
     uses: ./.github/workflows/Secrets_Scan.yml
     secrets: inherit
 
+  # 2) Docker build (sin needs -> arranca ya en paralelo a Secrets)
+  docker-build:
+    uses: ./.github/workflows/Docker_Build.yml
+    with:
+      registry:  ${{ github.event.inputs.registry }}
+      image_name: ${{ github.event.inputs.image_name }}
+      image_tag:  ${{ github.sha }}
+      image_tar:  ${{ github.event.inputs.image_tar }}
+    secrets: inherit
+
+  # --- DESPUÉS DE SECRETS ---
+  # SCA/SAST/IaC dependen de Secrets (pero NO bloquean el build)
   sca:
     needs: secrets-scan
     uses: ./.github/workflows/SCA.yml
@@ -42,16 +56,8 @@ jobs:
     uses: ./.github/workflows/IaC_Security.yml
     secrets: inherit
 
-  docker-build:
-    needs: [sca, sast, iac-security]
-    uses: ./.github/workflows/Docker_Build.yml
-    with:
-      registry:  ${{ github.event.inputs.registry }}
-      image_name: ${{ github.event.inputs.image_name }}
-      image_tag:  ${{ github.sha }}
-      image_tar:  ${{ github.event.inputs.image_tar }}
-    secrets: inherit
-
+  # --- CADENA DE IMAGEN (a partir del build) ---
+  # 3) Descargar artifact (solo depende del build)
   download-image-artifact-1:
     needs: docker-build
     uses: ./.github/workflows/Download_Docker_Artifact.yml
@@ -59,6 +65,7 @@ jobs:
       image_tar: ${{ github.event.inputs.image_tar }}
     secrets: inherit
 
+  # 4) Image scan (tras descargar/cargar la imagen)
   image-scan:
     needs: download-image-artifact-1
     uses: ./.github/workflows/ImageScan.yml
@@ -66,8 +73,10 @@ jobs:
       registry:  ${{ github.event.inputs.registry }}
       image_name: ${{ github.event.inputs.image_name }}
       image_tag:  ${{ github.sha }}
+      exit_code_on_findings: 0   # pon 1 si quieres gate
     secrets: inherit
 
+  # 5) Descargar de nuevo el artifact para firmar (si tu firma requiere la imagen local)
   download-image-artifact-2:
     needs: image-scan
     uses: ./.github/workflows/Download_Docker_Artifact.yml
@@ -75,6 +84,7 @@ jobs:
       image_tar: ${{ github.event.inputs.image_tar }}
     secrets: inherit
 
+  # 6) Container signing
   container-signing:
     needs: download-image-artifact-2
     uses: ./.github/workflows/Container_Signing.yml
@@ -84,6 +94,7 @@ jobs:
       image_tag:  ${{ github.sha }}
     secrets: inherit
 
+  # 7) Push firmado
   push-signed:
     needs: container-signing
     uses: ./.github/workflows/Push_Signed.yml
@@ -92,4 +103,3 @@ jobs:
       image_name: ${{ github.event.inputs.image_name }}
       image_tag:  ${{ github.sha }}
     secrets: inherit
-
