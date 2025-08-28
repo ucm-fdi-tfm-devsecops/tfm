@@ -1,34 +1,184 @@
-name: DevSecOps Pipeline
+name: DevSecOps Pipeline (Composite)
 
 on:
   workflow_dispatch:
+  # push:
+  # pull_request:
+
+env:
+  IMAGE_NAME: ucm-fdi-tfm-devsecops/myapp          # <-- cámbialo
+  REGISTRY: ghcr.io                        # <-- cámbialo si usas Docker Hub (docker.io) u otro
+  IMAGE_TAG: ${{ github.sha }}
+  IMAGE_TAR: docker-image.tar
+  IMAGE_REF: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
 
 permissions:
-  id-token: write     # necesario para cosign keyless
   contents: read
-  packages: write     # Container Signing requirement
-  security-events: write
+  packages: write          # para push a registry (GHCR)
+  id-token: write          # por si más adelante usas cosign keyless
 
 jobs:
-  secrets-scan:
-    uses: ./.github/workflows/Secrets_Scan.yml
+  # --- 1) Secrets Scan (Gitleaks OSS) ---
+  secrets:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Gitleaks (OSS) via Chocolatey
+        shell: powershell
+        run: |
+          choco install gitleaks -y --no-progress
+          gitleaks version
+      - name: Run Gitleaks (no fail on findings)
+        shell: powershell
+        continue-on-error: true
+        run: |
+          gitleaks detect --source . --config .gitleaks.toml --report-path gitleaks-report.json --report-format json --verbose
+      - name: Upload gitleaks report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gitleaks-report
+          path: gitleaks-report.json
+          if-no-files-found: ignore
 
+  # --- 2) SCA (Dependencias), SAST (Código), IaC Security (Infra) ---
   sca:
-    needs: secrets-scan
-    uses: ./.github/workflows/SCA.yml
+    runs-on: ubuntu-latest
+    needs: [secrets]
+    steps:
+      - uses: actions/checkout@v4
+      - name: SCA with Trivy (filesystem)
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          format: 'sarif'
+          output: 'sca-trivy.sarif'
+          severity: 'HIGH,CRITICAL'
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sca-trivy-sarif
+          path: sca-trivy.sarif
 
   sast:
-    needs: secrets-scan
-    uses: ./.github/workflows/SAST.yml
+    runs-on: ubuntu-latest
+    needs: [secrets]
+    steps:
+      - uses: actions/checkout@v4
+      - name: SAST with Semgrep
+        uses: returntocorp/semgrep-action@v1
+        with:
+          generateSarif: true
+          publishToken: ""         # no publicará a Semgrep App
+      - name: Upload SAST sarif
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sast-semgrep-sarif
+          path: semgrep.sarif
 
-  image-scan:
-    needs: [sca, sast]
-    uses: ./.github/workflows/Step3-ImageScan.yml
+  iac_security:
+    runs-on: ubuntu-latest
+    needs: [secrets]
+    steps:
+      - uses: actions/checkout@v4
+      - name: IaC scan with Checkov
+        uses: bridgecrewio/checkov-action@master
+        with:
+          output_format: sarif
+          output_file_path: iac-checkov.sarif
+          quiet: true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: iac-checkov-sarif
+          path: iac-checkov.sarif
 
-  container-signing:
-    needs: image-scan
-    uses: ./.github/workflows/Container_Signing.yml
+  # --- 3) Docker build + subir artifact de la imagen ---
+  docker_build:
+    runs-on: ubuntu-latest
+    needs: [sca, sast, iac_security]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Docker login (para caché/push eventual)
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.REGISTRY_USERNAME }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+      - name: Build image
+        run: |
+          docker build -t "${IMAGE_REF}" .
+      - name: Save image to tar (artifact)
+        run: |
+          docker save "${IMAGE_REF}" -o "${IMAGE_TAR}"
+      - name: Upload docker artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-image
+          path: ${{ env.IMAGE_TAR }}
 
-  iac-security:
-    needs: container-signing
-    uses: ./.github/workflows/IaC_Security.yml
+  # --- 4) Descargar artifact + Image scan ---
+  image_scan:
+    runs-on: ubuntu-latest
+    needs: [docker_build]
+    steps:
+      - name: Download docker artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: docker-image
+          path: .
+      - name: Load image
+        run: |
+          docker load -i "${IMAGE_TAR}"
+      - name: Trivy image scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.IMAGE_REF }}
+          format: 'table'
+          exit-code: '0'             # no falla el job por findings (ajústalo a 1 si quieres gate)
+          severity: 'HIGH,CRITICAL'
+          vuln-type: 'os,library'
+          scanners: 'vuln,secret'
+          output: 'image-trivy.txt'
+      - name: Upload image scan report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: image-trivy-report
+          path: image-trivy.txt
+
+  # --- 5) Descargar artifact + firmar contenedor + push firmado ---
+  container_sign_and_push:
+    runs-on: ubuntu-latest
+    needs: [image_scan]
+    steps:
+      - name: Download docker artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: docker-image
+          path: .
+      - name: Load image
+        run: docker load -i "${IMAGE_TAR}"
+      - name: Docker login
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.REGISTRY_USERNAME }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3.6.0
+      - name: Push image (unsigned)
+        run: docker push "${IMAGE_REF}"
+      - name: Cosign sign (key-based)
+        env:
+          COSIGN_PRIVATE_KEY: ${{ secrets.COSIGN_PRIVATE_KEY }}   # contenido PEM
+          COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}         # pass de la clave
+        run: |
+          echo "${COSIGN_PRIVATE_KEY}" > cosign.key
+          cosign sign --key cosign.key "${IMAGE_REF}" --yes
+      - name: Verify (opcional)
+        run: cosign verify --key cosign.key "${IMAGE_REF}" || true
+S
