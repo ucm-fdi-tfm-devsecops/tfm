@@ -23,12 +23,12 @@ permissions:
   security-events: write
 
 jobs:
-  # --- COLUMNA 1: paralelos ---
+  # --- Columna 1: corren a la vez ---
   secrets-scan:
     uses: ./.github/workflows/Secrets_Scan.yml
     secrets: inherit
 
-  docker-build:            # <-- paralelo a secrets-scan (SIN needs)
+  docker-build:
     uses: ./.github/workflows/Docker_Build.yml
     with:
       registry:  ${{ github.event.inputs.registry }}
@@ -37,25 +37,25 @@ jobs:
       image_tar:  ${{ github.event.inputs.image_tar }}
     secrets: inherit
 
-  # --- COLUMNA 2: dependen de secrets-scan (en paralelo entre sí) ---
+  # --- Barrier: todo lo demás espera a que ACABEN ambos (✔✔) ---
   sca:
-    needs: secrets-scan
+    needs: [secrets-scan, docker-build]
     uses: ./.github/workflows/SCA.yml
     secrets: inherit
 
   sast:
-    needs: secrets-scan
+    needs: [secrets-scan, docker-build]
     uses: ./.github/workflows/SAST.yml
     secrets: inherit
 
   iac-security:
-    needs: secrets-scan
+    needs: [secrets-scan, docker-build]
     uses: ./.github/workflows/IaC_Security.yml
     secrets: inherit
 
-  # --- COLUMNA 3 y cadena de imagen ---
+  # Descarga el artifact de la imagen solo cuando secrets y build han acabado
   download-image-artifact-1:
-    needs: docker-build            # depende SOLO del build
+    needs: [secrets-scan, docker-build]
     uses: ./.github/workflows/Download_Docker_Artifact.yml
     with:
       image_tar: ${{ github.event.inputs.image_tar }}
@@ -68,7 +68,7 @@ jobs:
       registry:  ${{ github.event.inputs.registry }}
       image_name: ${{ github.event.inputs.image_name }}
       image_tag:  ${{ github.sha }}
-      # si tu ImageScan.yml NO define este input, elimina la línea de abajo:
+      # si tu ImageScan.yml no define este input, quita la línea:
       # exit_code_on_findings: 0
     secrets: inherit
 
@@ -96,4 +96,3 @@ jobs:
       image_name: ${{ github.event.inputs.image_name }}
       image_tag:  ${{ github.sha }}
     secrets: inherit
-
