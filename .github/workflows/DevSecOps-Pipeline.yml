@@ -181,4 +181,3 @@ jobs:
           cosign sign --key cosign.key "${IMAGE_REF}" --yes
       - name: Verify (opcional)
         run: cosign verify --key cosign.key "${IMAGE_REF}" || true
-S
