@@ -28,17 +28,15 @@ jobs:
     uses: ./.github/workflows/Secrets_Scan.yml
     secrets: inherit
 
-  docker-build:
-  uses: ./.github/workflows/Docker_Build.yml
-  needs: [sca, sast, iac-security]
-  with:
-    registry:   ${{ github.event.inputs.registry }}
-    image_name: ${{ github.event.inputs.image_name }}
-    image_tag:  ${{ github.sha }}
-    image_tar:  ${{ github.event.inputs.image_tar }}
-  secrets:
-    REGISTRY_USERNAME: ${{ secrets.REGISTRY_USERNAME }}
-    REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
+docker-build:
+    needs: [sca, sast, iac-security]
+    uses: ./.github/workflows/Docker_Build.yml
+    with:
+      registry:   ${{ github.event.inputs.registry }}
+      image_name: ${{ github.event.inputs.image_name }}
+      image_tag:  ${{ github.sha }}
+      image_tar:  ${{ github.event.inputs.image_tar }}
+    secrets: inherit
 
 
   # --- Barrier: todo lo demás espera a que ACABEN ambos (✔✔) ---
