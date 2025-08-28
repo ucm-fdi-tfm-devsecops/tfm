@@ -23,12 +23,21 @@ permissions:
   security-events: write
 
 jobs:
-  # 1) Secrets
+  # --- COLUMNA 1: paralelos ---
   secrets-scan:
     uses: ./.github/workflows/Secrets_Scan.yml
     secrets: inherit
 
-  # 2) SCA/SAST/IaC (en paralelo) — todos dependen de Secrets
+  docker-build:            # <-- paralelo a secrets-scan (SIN needs)
+    uses: ./.github/workflows/Docker_Build.yml
+    with:
+      registry:  ${{ github.event.inputs.registry }}
+      image_name: ${{ github.event.inputs.image_name }}
+      image_tag:  ${{ github.sha }}
+      image_tar:  ${{ github.event.inputs.image_tar }}
+    secrets: inherit
+
+  # --- COLUMNA 2: dependen de secrets-scan (en paralelo entre sí) ---
   sca:
     needs: secrets-scan
     uses: ./.github/workflows/SCA.yml
@@ -44,26 +53,14 @@ jobs:
     uses: ./.github/workflows/IaC_Security.yml
     secrets: inherit
 
-  # 3) Docker build — espera a SCA + SAST + IaC (como en la imagen)
-  docker-build:
-    needs: [sca, sast, iac-security]
-    uses: ./.github/workflows/Docker_Build.yml
-    with:
-      registry:  ${{ github.event.inputs.registry }}
-      image_name: ${{ github.event.inputs.image_name }}
-      image_tag:  ${{ github.sha }}
-      image_tar:  ${{ github.event.inputs.image_tar }}
-    secrets: inherit
-
-  # 4) Descargar artifact (.tar)
+  # --- COLUMNA 3 y cadena de imagen ---
   download-image-artifact-1:
-    needs: docker-build
+    needs: docker-build            # depende SOLO del build
     uses: ./.github/workflows/Download_Docker_Artifact.yml
     with:
       image_tar: ${{ github.event.inputs.image_tar }}
     secrets: inherit
 
-  # 5) Image scan
   image-scan:
     needs: download-image-artifact-1
     uses: ./.github/workflows/ImageScan.yml
@@ -71,11 +68,10 @@ jobs:
       registry:  ${{ github.event.inputs.registry }}
       image_name: ${{ github.event.inputs.image_name }}
       image_tag:  ${{ github.sha }}
-      # si tu ImageScan.yml NO define este input, no lo pongas:
+      # si tu ImageScan.yml NO define este input, elimina la línea de abajo:
       # exit_code_on_findings: 0
     secrets: inherit
 
-  # 6) Descargar de nuevo el artifact para firmar
   download-image-artifact-2:
     needs: image-scan
     uses: ./.github/workflows/Download_Docker_Artifact.yml
@@ -83,7 +79,6 @@ jobs:
       image_tar: ${{ github.event.inputs.image_tar }}
     secrets: inherit
 
-  # 7) Container signing
   container-signing:
     needs: download-image-artifact-2
     uses: ./.github/workflows/Container_Signing.yml
@@ -93,7 +88,6 @@ jobs:
       image_tag:  ${{ github.sha }}
     secrets: inherit
 
-  # 8) Push firmado
   push-signed:
     needs: container-signing
     uses: ./.github/workflows/Push_Signed.yml
