@@ -1,5 +1,6 @@
 name: Image Scan
 on:
+  workflow_dispatch:
   workflow_call:
     inputs:
       registry: {required: true, type: string}
