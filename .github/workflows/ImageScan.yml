@@ -18,7 +18,11 @@ jobs:
       - name: Load Docker image
         run: |
           docker load -i docker-image.tar
-          docker tag ${{ inputs.image_name }} ${{ inputs.image_name }}:${{ inputs.image_tag }}
+          # Ver qué imagen se cargó
+          docker images
+          # Reetiquetar la imagen cargada al tag que espera Trivy
+          LOADED_IMAGE=$(docker images --format "{{.Repository}}:{{.Tag}}" | head -n 1)
+          docker tag $LOADED_IMAGE ${{ inputs.image_name }}:${{ inputs.image_tag }}
 
       - uses: aquasecurity/trivy-action@0.28.0
         with:
