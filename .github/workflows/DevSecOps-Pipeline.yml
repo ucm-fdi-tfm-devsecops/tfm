@@ -61,7 +61,6 @@ jobs: # Se usa para definir uno o más trabajos a ejecutar en el workflow.
     needs: [docker-build, sca, sast]
     uses: ./.github/workflows/ImageScan.yml
     with:
-      registry:   ${{ github.event.inputs.registry }}
       image_name: ${{ github.event.inputs.image_name }}
       image_tag:  ${{ github.sha }}
     secrets: inherit
