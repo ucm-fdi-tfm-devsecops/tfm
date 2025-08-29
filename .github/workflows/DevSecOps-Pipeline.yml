@@ -1,8 +1,10 @@
 name: DevSecOps Pipeline
 
 on:
-  workflow_dispatch:
-    inputs:
+  workflow_dispatch: # Para lanzar unicamente el workflow de manera manual.
+  
+    inputs: 
+    # Variables que pueden ser llamadas en los workflows.
       registry:
         description: "Container registry (ghcr.io, docker.io, ...)"
         required: true
@@ -10,43 +12,43 @@ on:
       image_name:
         description: "Image name (org/repo o usuario/imagen)"
         required: true
-        default: "your-org/your-app"
+        default: "ucm-fdi-tfm-devsecops/tfm-app"
       image_tar:
         description: "Nombre del artifact de la imagen"
         required: true
         default: "docker-image.tar"
 
 permissions:
-  id-token: write
-  contents: read
-  packages: write
-  security-events: write
+  id-token: write # Necesario para cosign keyless (OIDC)
+  contents: read # Permite poder acceder al código fuente del repositorio.
+  packages: write # Necesario para push a GHCR
+  security-events: write # Permite poder subir los resultados del escaneo (SARIF) al Security Dashboard de GitHub.
 
-jobs:
+jobs: # Se usa para definir uno o más trabajos a ejecutar en el workflow.
   # --- 1ª columna ---
-  secrets-scan:
+  secrets-scan: # Analisis de secretos
     uses: ./.github/workflows/Secrets_Scan.yml
     secrets: inherit
 
-  sca:
-    needs: secrets-scan
-    uses: ./.github/workflows/SCA.yml
+  sca: # Analisis de dependencias de terceros
+    needs: secrets-scan # Depende de que el escaneo de secretos acabe satisfactoriamente para poder empezar.
+    uses: ./.github/workflows/SCA.yml # Ruta del workflow donde se ejecuta el sca.
     secrets: inherit
 
-  sast:
-    needs: secrets-scan
-    uses: ./.github/workflows/SAST.yml
+  sast: # Analisis estático de vulnerabilidadees en el código.
+    needs: secrets-scan # Depende de que el escaneo de secretos acabe satisfactoriamente para poderempezar.
+    uses: ./.github/workflows/SAST.yml # Ruta del workflow donde se ejecuta el sast.
     secrets: inherit
 
-  iac-security:
-    needs: secrets-scan
-    uses: ./.github/workflows/IaC_Security.yml
+  iac-security: # Analisis de la infraestructura como códgo.
+    needs: secrets-scan # Depende de que el escaneo de secretos acabe satisfactoriamente para poderempezar.
+    uses: ./.github/workflows/IaC_Security.yml # Ruta del workflow donde se ejecuta el iac security.
     secrets: inherit
 
-  # --- Docker build espera a que acaben sca/sast/iac ---
-  docker-build:
-    needs: [sca, sast, iac-security]
-    uses: ./.github/workflows/Docker_Build.yml
+  # --- Docker build espera a que acaben satisfactoriamente sca/sast/iac ---
+  docker-build: # Montaje del docker.
+    needs: [sca, sast, iac-security] # Depende de que sca, sast e iac security acaben satisfactoriamente para poder empezar.
+    uses: ./.github/workflows/Docker_Build.yml # Ruta del workflow donde se ejecuta el docker build.
     with:
       registry:   ${{ github.event.inputs.registry }}
       image_name: ${{ github.event.inputs.image_name }}
@@ -58,7 +60,7 @@ jobs:
 
   # --- Download necesita que Secrets y Build hayan acabado ---
   download-image-artifact-1:
-    needs: [secrets-scan, docker-build]
+    needs: [secrets-scan, docker-build, sca, sast, iac-security] # Depende de que secrets acaben satisfactoriamente para poder empezar.
     uses: ./.github/workflows/Download_Docker_Artifact.yml
     with:
       image_tar: ${{ github.event.inputs.image_tar }}
