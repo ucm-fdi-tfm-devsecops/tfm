@@ -58,16 +58,8 @@ jobs: # Se usa para definir uno o más trabajos a ejecutar en el workflow.
       REGISTRY_USERNAME: ${{ secrets.REGISTRY_USERNAME }}
       REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
 
-  # --- Download necesita que Secrets y Build hayan acabado ---
-  download-image-artifact-1:
-    needs: [secrets-scan, docker-build, sca, sast, iac-security] # Depende de que secrets acaben satisfactoriamente para poder empezar.
-    uses: ./.github/workflows/Download_Docker_Artifact.yml
-    with:
-      image_tar: ${{ github.event.inputs.image_tar }}
-    secrets: inherit
-
   image-scan:
-    needs: download-image-artifact-1
+    needs: [secrets-scan, docker-build, sca, sast, iac-security]
     uses: ./.github/workflows/ImageScan.yml
     with:
       registry:   ${{ github.event.inputs.registry }}
