@@ -45,6 +45,11 @@ jobs:
           name: docker-image
           path: .
           
+      - name: Load image from artifact
+        run: |
+          docker load -i docker-image.tar 
+          docker tag tfm-app:latest "${IMAGE_REF}"
+          
       - name: Login to registry
         env:
           REGISTRY: ${{ inputs.registry }}
