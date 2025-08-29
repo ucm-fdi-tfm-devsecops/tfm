@@ -39,8 +39,12 @@ jobs:
     env:
       IMAGE_REF: ${{ inputs.registry }}/${{ inputs.image_name }}:${{ inputs.image_tag }}
     steps:
-      # Aquí NO hacemos checkout ni build. La imagen ya está cargada por el job previo (download & docker load)
-
+      
+      - uses: actions/download-artifact@v4
+        with:
+          name: docker-image
+          path: .
+          
       - name: Login to registry
         env:
           REGISTRY: ${{ inputs.registry }}
@@ -90,3 +94,9 @@ jobs:
       - name: Verify signature (optional)
         continue-on-error: true
         run: cosign verify "${{ steps.digest.outputs.digest }}"
+
+      # Push Signed Image
+      - run: |
+          echo "${{ secrets.REGISTRY_PASSWORD }}" | docker login \
+            ${{ inputs.registry }} -u "${{ secrets.REGISTRY_USERNAME }}" --password-stdin
+      - run: docker push ${{ inputs.registry }}/${{ inputs.image_name }}:${{ inputs.image_tag }}
