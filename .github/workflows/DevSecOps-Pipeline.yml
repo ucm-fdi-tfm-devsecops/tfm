@@ -41,13 +41,12 @@ jobs: # Se usa para definir uno o más trabajos a ejecutar en el workflow.
     secrets: inherit
 
   iac-security: # Analisis de la infraestructura como códgo.
-    needs: secrets-scan # Depende de que el escaneo de secretos acabe satisfactoriamente para poderempezar.
     uses: ./.github/workflows/IaC_Security.yml # Ruta del workflow donde se ejecuta el iac security.
     secrets: inherit
 
   # --- Docker build espera a que acaben satisfactoriamente sca/sast/iac ---
   docker-build: # Montaje del docker.
-    needs: [sca, sast, iac-security] # Depende de que sca, sast e iac security acaben satisfactoriamente para poder empezar.
+    needs: iac-security # Depende de que iac security acabe satisfactoriamente para poder empezar.
     uses: ./.github/workflows/Docker_Build.yml # Ruta del workflow donde se ejecuta el docker build.
     with:
       registry:   ${{ github.event.inputs.registry }}
@@ -59,7 +58,7 @@ jobs: # Se usa para definir uno o más trabajos a ejecutar en el workflow.
       REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
 
   image-scan:
-    needs: [secrets-scan, docker-build, sca, sast, iac-security]
+    needs: [docker-build, sca, sast]
     uses: ./.github/workflows/ImageScan.yml
     with:
       registry:   ${{ github.event.inputs.registry }}
