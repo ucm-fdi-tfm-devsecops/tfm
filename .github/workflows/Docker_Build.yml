@@ -34,7 +34,9 @@ jobs:
 
        #  2. Build docker
       - name: Build Docker image
-        run: docker build -t ${{ inputs.image_name }} -f src/docker/Dockerfile .
+        run: |
+          IMAGE_REF="${{ inputs.registry }}/${{ inputs.image_name }}:${{ inputs.image_tag }}"
+          docker build -t "$IMAGE_REF" -f src/docker/Dockerfile .
 
       - name: Save image to tar
         run: |
