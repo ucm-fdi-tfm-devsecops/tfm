@@ -67,25 +67,9 @@ jobs: # Se usa para definir uno o más trabajos a ejecutar en el workflow.
       image_tag:  ${{ github.sha }}
     secrets: inherit
 
-  download-image-artifact-2:
-    needs: image-scan
-    uses: ./.github/workflows/Download_Docker_Artifact.yml
-    with:
-      image_tar: ${{ github.event.inputs.image_tar }}
-    secrets: inherit
-
   container-signing:
-    needs: download-image-artifact-2
+    needs: image-scan
     uses: ./.github/workflows/Container_Signing.yml
-    with:
-      registry:   ${{ github.event.inputs.registry }}
-      image_name: ${{ github.event.inputs.image_name }}
-      image_tag:  ${{ github.sha }}
-    secrets: inherit
-
-  push-signed:
-    needs: container-signing
-    uses: ./.github/workflows/Push_Signed.yml
     with:
       registry:   ${{ github.event.inputs.registry }}
       image_name: ${{ github.event.inputs.image_name }}
