@@ -13,6 +13,10 @@ on:
         description: "Image name (org/repo o usuario/imagen)"
         required: true
         default: "ucm-fdi-tfm-devsecops/tfm-app"
+      image_tag: 
+        description: "Nombre de la etiqueta de la imagen"
+        required: true
+        default: github.sha
       image_tar:
         description: "Nombre del artifact de la imagen"
         required: true
@@ -51,7 +55,7 @@ jobs: # Se usa para definir uno o más trabajos a ejecutar en el workflow.
     with:
       registry:   ${{ github.event.inputs.registry }}
       image_name: ${{ github.event.inputs.image_name }}
-      image_tag:  ${{ github.sha }}
+      image_tag:  ${{ github.event.inputs.image_tag }}
       image_tar:  ${{ github.event.inputs.image_tar }}
     secrets:
       REGISTRY_USERNAME: ${{ secrets.REGISTRY_USERNAME }}
