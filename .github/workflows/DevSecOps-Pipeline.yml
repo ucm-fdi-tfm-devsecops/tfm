@@ -10,9 +10,13 @@ on:
         required: true
         default: "ghcr.io"
       image_name:
-        description: "Image name (org/repo o usuario/imagen)"
+        description: "Image name (org/imagen)"
         required: true
         default: "ucm-fdi-tfm-devsecops/tfm-app"
+      repo_name:
+        description: "Repo name (org/repo)"
+        required: true
+        default: "ucm-fdi-tfm-devsecops/tfm"
       image_tag: 
         description: "Nombre de la etiqueta de la imagen"
         required: true
@@ -75,5 +79,6 @@ jobs: # Se usa para definir uno o más trabajos a ejecutar en el workflow.
     with:
       registry:   ${{ github.event.inputs.registry }}
       image_name: ${{ github.event.inputs.image_name }}
+      repo_name: ${{ github.event.inputs.repo_name }}
       image_tag:  ${{ github.sha }}
     secrets: inherit
