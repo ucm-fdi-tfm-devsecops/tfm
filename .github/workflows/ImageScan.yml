@@ -3,28 +3,26 @@ on:
   workflow_dispatch:
   workflow_call:
     inputs:
-      registry: {required: true, type: string}
       image_name: {required: true, type: string}
       image_tag: {required: true, type: string}
 
 jobs:
   image-scan:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write   # necesario para login en GHCR
     steps:
       - uses: actions/download-artifact@v4
         with:
           name: docker-image
           path: .
 
-      - name: Docker login GHCR
-        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ${{ inputs.registry }} -u ${{ github.actor }} --password-stdin
+      - name: Load Docker image
+        run: |
+          docker load -i docker-image.tar
+          docker tag ${{ inputs.image_name }} ${{ inputs.image_name }}:${{ inputs.image_tag }}
 
       - uses: aquasecurity/trivy-action@0.28.0
         with:
-          image-ref: ${{ inputs.registry }}/${{ inputs.image_name }}:${{ inputs.image_tag }}
+          image-ref: ${{ inputs.image_name }}:${{ inputs.image_tag }}
           format: 'table'
           exit-code: '0'
           severity: 'HIGH,CRITICAL'
