@@ -75,4 +75,6 @@ jobs: # Se usa para definir uno o más trabajos a ejecutar en el workflow.
     with:
       registry:   ${{ github.event.inputs.registry }}
       image_name: ${{ github.event.inputs.image_name }}
-    secrets: inherit
+    secrets:
+      REGISTRY_USERNAME: ${{ secrets.REGISTRY_USERNAME }}
+      REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
