@@ -1,45 +1,76 @@
-name: Container Signing
+name: Download Image + Container Signing + Push Registry
 
 on:
   workflow_call:
     inputs:
-      registry: { required: true, type: string }
-      image_name: { required: true, type: string }
+      registry:
+        description: "Container registry (ghcr.io, docker.io, ...)"
+        required: true
+        type: string
+      image_name:
+        description: "Image name (org/repo o usuario/imagen)"
+        required: true
+        type: string
+      image_tag:
+        description: "Tag de la imagen (normalmente el SHA del commit o fecha)"
+        required: true
+        type: string
     secrets:
-      REGISTRY_USERNAME: { required: true }
-      REGISTRY_PASSWORD: { required: true }
+      # Opcionales: solo se usan si registry != ghcr.io
+      REGISTRY_USERNAME:
+        required: false
+      REGISTRY_PASSWORD:
+        required: false
+
+permissions:
+  contents: read
+  packages: write
+  id-token: write
 
 jobs:
-  container-signing:
+  sign:
     runs-on: ubuntu-latest
+    env:
+      IMAGE_REF: ${{ inputs.registry }}/${{ inputs.image_name }}:${{ inputs.image_tag }}
     steps:
-      - name: Download Docker image artifact
-        uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v4
         with:
           name: docker-image
           path: .
 
-      - name: Load Docker image
-        run: docker load -i docker-image.tar
-
-      - name: Generate date-based tag
-        id: date_tag
-        run: echo "IMAGE_TAG=$(date +'%Y%m%d-%H%M%S')" >> $GITHUB_ENV
-
-      - name: Define IMAGE_REF
-        run: echo "IMAGE_REF=${{ inputs.registry }}/${{ inputs.image_name }}:${IMAGE_TAG}" >> $GITHUB_ENV
-
-      - name: Re-tag image
+      - name: Load image from artifact
         run: |
-          LOADED_IMAGE=$(docker images --format "{{.Repository}}:{{.Tag}}" | head -n 1)
-          echo "Imagen cargada: $LOADED_IMAGE"
-          echo "Re-etiquetando a: $IMAGE_REF"
-          docker tag $LOADED_IMAGE $IMAGE_REF
+          docker load -i docker-image.tar
+          docker images
 
       - name: Docker login
+        env:
+          REGISTRY: ${{ inputs.registry }}
+          USERNAME: ${{ secrets.REGISTRY_USERNAME || github.actor }}
+          PASSWORD: ${{ secrets.REGISTRY_PASSWORD || secrets.GITHUB_TOKEN }}
         run: |
-          echo "${{ secrets.REGISTRY_PASSWORD }}" | \
-            docker login "${{ inputs.registry }}" -u "${{ secrets.REGISTRY_USERNAME }}" --password-stdin
+          echo "$PASSWORD" | docker login "$REGISTRY" -u "$USERNAME" --password-stdin
 
-      - name: Push signed image
-        run: docker push $IMAGE_REF
+      - name: Push image (unsigned)
+        run: docker push "${IMAGE_REF}"
+
+      - name: Get image digest (repo digest after push)
+        id: digest
+        run: |
+          DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' "${IMAGE_REF}")
+          if [ -z "$DIGEST" ]; then
+            echo "No se pudo obtener el digest de ${IMAGE_REF}"; exit 1
+          fi
+          echo "digest=$DIGEST" >> $GITHUB_OUTPUT
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3.6.0
+
+      - name: Cosign sign (keyless via OIDC)
+        env:
+          COSIGN_EXPERIMENTAL: "true"
+        run: cosign sign --yes "${{ steps.digest.outputs.digest }}"
+
+      - name: Verify signature (optional)
+        continue-on-error: true
+        run: cosign verify "${{ steps.digest.outputs.digest }}"
