@@ -1,0 +1,45 @@
+name: Container Signing
+
+on:
+  workflow_call:
+    inputs:
+      registry: { required: true, type: string }
+      image_name: { required: true, type: string }
+    secrets:
+      REGISTRY_USERNAME: { required: true }
+      REGISTRY_PASSWORD: { required: true }
+
+jobs:
+  container-signing:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Docker image artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: docker-image
+          path: .
+
+      - name: Load Docker image
+        run: docker load -i docker-image.tar
+
+      - name: Generate date-based tag
+        id: date_tag
+        run: echo "IMAGE_TAG=$(date +'%Y%m%d-%H%M%S')" >> $GITHUB_ENV
+
+      - name: Define IMAGE_REF
+        run: echo "IMAGE_REF=${{ inputs.registry }}/${{ inputs.image_name }}:${IMAGE_TAG}" >> $GITHUB_ENV
+
+      - name: Re-tag image
+        run: |
+          LOADED_IMAGE=$(docker images --format "{{.Repository}}:{{.Tag}}" | head -n 1)
+          echo "Imagen cargada: $LOADED_IMAGE"
+          echo "Re-etiquetando a: $IMAGE_REF"
+          docker tag $LOADED_IMAGE $IMAGE_REF
+
+      - name: Docker login
+        run: |
+          echo "${{ secrets.REGISTRY_PASSWORD }}" | \
+            docker login "${{ inputs.registry }}" -u "${{ secrets.REGISTRY_USERNAME }}" --password-stdin
+
+      - name: Push signed image
+        run: docker push $IMAGE_REF
