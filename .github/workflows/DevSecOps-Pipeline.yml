@@ -35,12 +35,12 @@ jobs: # Se usa para definir uno o más trabajos a ejecutar en el workflow.
     secrets: inherit
 
   sca: # Analisis de dependencias de terceros
-    needs: secrets-scan # Depende de que el escaneo de secretos acabe satisfactoriamente para poder empezar.
+    needs: [iac-security, secrets-scan] # Depende de que el escaneo de secretos acabe satisfactoriamente para poder empezar.
     uses: ./.github/workflows/SCA.yml # Ruta del workflow donde se ejecuta el sca.
     secrets: inherit
 
   sast: # Analisis estático de vulnerabilidadees en el código.
-    needs: secrets-scan # Depende de que el escaneo de secretos acabe satisfactoriamente para poderempezar.
+    needs: [iac-security, secrets-scan] # Depende de que el escaneo de secretos acabe satisfactoriamente para poderempezar.
     uses: ./.github/workflows/SAST.yml # Ruta del workflow donde se ejecuta el sast.
     secrets: inherit
 
