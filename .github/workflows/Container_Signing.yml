@@ -65,9 +65,9 @@ jobs:
           COSIGN_EXPERIMENTAL: "true"
         run: cosign sign --yes "${IMAGE_REF}"
 
-      - name: Verify signature (optional)
-        continue-on-error: true
-        run: cosign verify \
-               --certificate-oidc-issuer https://token.actions.githubusercontent.com \
-               --certificate-identity-regexp "https://github.com/${{ github.repository }}.*" \
-               "${IMAGE_REF}"
+      - name: Verify signature (keyless)
+        run: |
+          cosign verify \
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+            --certificate-identity-regexp "https://github.com/ucm-fdi-tfm-devsecops/.*" \
+            "${IMAGE_REF}"
