@@ -69,8 +69,8 @@ jobs:
       - name: Cosign sign (keyless via OIDC)
         env:
           COSIGN_EXPERIMENTAL: "true"
-        run: cosign sign --yes "${{ steps.digest.outputs.digest }}"
+        run: cosign sign --yes "${IMAGE_REF}"
 
       - name: Verify signature (optional)
         continue-on-error: true
-        run: cosign verify "${{ steps.digest.outputs.digest }}"
+        run: cosign verify "${IMAGE_REF}"
