@@ -13,10 +13,6 @@ on:
         description: "Image name (org/imagen)"
         required: true
         default: "ucm-fdi-tfm-devsecops/tfm-app"
-      image_tag: 
-        description: "Nombre de la etiqueta de la imagen"
-        required: true
-        default: github.sha
       image_tar:
         description: "Nombre del artifact de la imagen"
         required: true
@@ -30,9 +26,21 @@ permissions:
 
 jobs: # Se usa para definir uno o más trabajos a ejecutar en el workflow.
   # --- 1ª columna ---
+  init:
+    runs-on: ubuntu-latest
+    outputs:
+      image_tag: ${{ steps.tagging.outputs.tags }
+    steps:
+      - name: Generate Image Tag
+        id: tagging
+        run: |
+          echo "tags=$(date +'%Y%m%d-%H%M%S')" >> $GITHUB_OUTPUT
+      
+  
   secrets-scan: # Analisis de secretos
     uses: ./.github/workflows/Secrets_Scan.yml
-    secrets: inherit
+    secrets: 
+      gitleaks_license: ${{ secrets.GITLEAKS_LICENSE }}
 
   sca: # Analisis de dependencias de terceros
     needs: [iac-security, secrets-scan] # Depende de que el escaneo de secretos acabe satisfactoriamente para poder empezar.
@@ -50,30 +58,30 @@ jobs: # Se usa para definir uno o más trabajos a ejecutar en el workflow.
 
   # --- Docker build espera a que acaben satisfactoriamente sca/sast/iac ---
   docker-build: # Montaje del docker.
-    needs: [iac-security, secrets-scan] # Depende de que iac security acabe satisfactoriamente para poder empezar.
+    needs: [init, iac-security, secrets-scan] # Depende de que iac security acabe satisfactoriamente para poder empezar.
     uses: ./.github/workflows/Docker_Build.yml # Ruta del workflow donde se ejecuta el docker build.
     with:
       registry:   ${{ github.event.inputs.registry }}
       image_name: ${{ github.event.inputs.image_name }}
-      image_tag:  ${{ github.event.inputs.image_tag }}
+      image_tag:  ${{ needs.init.outputs.image_tag }}
       image_tar:  ${{ github.event.inputs.image_tar }}
     secrets:
       REGISTRY_USERNAME: ${{ secrets.REGISTRY_USERNAME }}
       REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
 
   image-scan:
-    needs: [docker-build, sca, sast]
+    needs: [init, docker-build, sca, sast]
     uses: ./.github/workflows/ImageScan.yml
     with:
       image_name: ${{ github.event.inputs.image_name }}
-      image_tag:  ${{ github.sha }}
+      image_tag:  ${{ needs.init.outputs.image_tag }}
     secrets: inherit
 
   container-signing:
-    needs: image-scan
+    needs: [init, image-scan]
     uses: ./.github/workflows/Container_Signing.yml
     with:
       registry:   ${{ github.event.inputs.registry }}
       image_name: ${{ github.event.inputs.image_name }}
-      image_tag:  ${{ github.event.inputs.image_tag }}
+      image_tag:  ${{ needs.init.outputs.image_tag }}
     secrets: inherit
