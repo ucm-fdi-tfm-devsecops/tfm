@@ -37,9 +37,15 @@ jobs: # Se usa para definir uno o más trabajos a ejecutar en el workflow.
           echo "tags=$(date +'%Y%m%d-%H%M%S')" >> $GITHUB_OUTPUT
   
   secrets-scan: # Analisis de secretos
+    needs: init
     uses: ./.github/workflows/Secrets_Scan.yml
     secrets: 
       gitleaks_license: ${{ secrets.GITLEAKS_LICENSE }}
+      
+  iac-security: # Analisis de la infraestructura como códgo.
+    needs: init
+    uses: ./.github/workflows/IaC_Security.yml # Ruta del workflow donde se ejecuta el iac security.
+    secrets: inherit
 
   sca: # Analisis de dependencias de terceros
     needs: [iac-security, secrets-scan] # Depende de que el escaneo de secretos acabe satisfactoriamente para poder empezar.
@@ -49,10 +55,6 @@ jobs: # Se usa para definir uno o más trabajos a ejecutar en el workflow.
   sast: # Analisis estático de vulnerabilidadees en el código.
     needs: [iac-security, secrets-scan] # Depende de que el escaneo de secretos acabe satisfactoriamente para poderempezar.
     uses: ./.github/workflows/SAST.yml # Ruta del workflow donde se ejecuta el sast.
-    secrets: inherit
-
-  iac-security: # Analisis de la infraestructura como códgo.
-    uses: ./.github/workflows/IaC_Security.yml # Ruta del workflow donde se ejecuta el iac security.
     secrets: inherit
 
   # --- Docker build espera a que acaben satisfactoriamente sca/sast/iac ---
