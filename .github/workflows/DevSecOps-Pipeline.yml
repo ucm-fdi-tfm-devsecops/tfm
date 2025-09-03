@@ -29,13 +29,12 @@ jobs: # Se usa para definir uno o más trabajos a ejecutar en el workflow.
   init:
     runs-on: ubuntu-latest
     outputs:
-      image_tag: ${{ steps.tagging.outputs.tags }
+      image_tag: ${{ steps.tagging.outputs.tags }}
     steps:
       - name: Generate Image Tag
         id: tagging
         run: |
           echo "tags=$(date +'%Y%m%d-%H%M%S')" >> $GITHUB_OUTPUT
-      
   
   secrets-scan: # Analisis de secretos
     uses: ./.github/workflows/Secrets_Scan.yml
