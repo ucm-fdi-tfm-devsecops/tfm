@@ -1,0 +1,113 @@
+name: Download Image + Container Signing + Push Registry
+
+on:
+  workflow_call:
+    inputs:
+      registry:
+        description: "Container registry (ghcr.io, docker.io, ...)"
+        required: true
+        type: string
+      image_name:
+        description: "Image name (org/repo o usuario/imagen)"
+        required: true
+        type: string
+      image_tag:
+        description: "Tag de la imagen (normalmente el SHA del commit)"
+        required: true
+        type: string
+      # Si quieres forzar keyless o key-based podrías añadir un input aquí
+    secrets:
+      # Para registries distintos de GHCR (o si prefieres login clásico)
+      REGISTRY_USERNAME:
+        required: false
+      REGISTRY_PASSWORD:
+        required: false
+      # Si alguna vez quieres firma con clave (NO keyless), descomenta estos y el bloque correspondiente
+      # COSIGN_PRIVATE_KEY:
+      #   required: false
+      # COSIGN_PASSWORD:
+      #   required: false
+
+permissions:
+  contents: read
+  packages: write         # necesario para push a GHCR
+  id-token: write         # necesario para cosign keyless (OIDC)
+
+jobs:
+  sign:
+    runs-on: ubuntu-latest
+    env:
+      IMAGE_REF: ${{ inputs.registry }}/${{ inputs.image_name }}:${{ inputs.image_tag }}
+    steps:
+      
+      - uses: actions/download-artifact@v4
+        with:
+          name: docker-image
+          path: .
+          
+      - name: Load image from artifact
+        run: |
+          docker load -i docker-image.tar 
+          docker images
+
+      - name: Re-tag
+        run: |
+          LOADED_IMAGE=$(docker images --format "{{.Repository}}:{{.Tag}}" | head -n 1)
+          echo "Imagen cargada: $LOADED_IMAGE"
+          docker tag $LOADED_IMAGE "${IMAGE_REF}"
+        
+      - name: Login to registry
+        env:
+          REGISTRY: ${{ inputs.registry }}
+          USERNAME: ${{ secrets.REGISTRY_USERNAME }}
+          PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          set -e
+          if [ "$REGISTRY" = "ghcr.io" ]; then
+            # Login con GITHUB_TOKEN para GHCR
+            echo "$GITHUB_TOKEN" | docker login ghcr.io -u "$ACTOR" --password-stdin
+          else
+            # Login clásico para otros registries (Docker Hub, etc.)
+            if [ -z "$USERNAME" ] || [ -z "$PASSWORD" ]; then
+              echo "REGISTRY_USERNAME/REGISTRY_PASSWORD no definidos para $REGISTRY"; exit 1
+            fi
+            echo "$PASSWORD" | docker login "$REGISTRY" -u "$USERNAME" --password-stdin
+          fi
+
+      - name: Push image (unsigned)
+        run: docker push "${IMAGE_REF}"
+
+      - name: Get image digest (repo digest after push)
+        id: digest
+        run: |
+          # Obtiene el primer repoDigest (incluye el sha256)
+          DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' "${IMAGE_REF}")
+          if [ -z "$DIGEST" ]; then
+            echo "No se pudo obtener el digest de ${IMAGE_REF}"; exit 1
+          fi
+          echo "DIGEST=$DIGEST" | tee -a $GITHUB_ENV
+          echo "digest=$DIGEST" >> $GITHUB_OUTPUT
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3.6.0
+
+      # --- Firma KEYLESS (OIDC) por defecto ---
+      - name: Cosign sign (keyless via OIDC)
+        env:
+          COSIGN_EXPERIMENTAL: "true"
+        run: |
+          # Firma contra el digest inmutable
+          cosign sign --yes "${{ steps.digest.outputs.digest }}"
+
+      # --- (Opcional) Verificación de la firma ---
+      - name: Verify signature (optional)
+        continue-on-error: true
+        run: cosign verify "${{ steps.digest.outputs.digest }}"
+
+      # Push Signed Image
+      - run: |
+          echo "${{ secrets.REGISTRY_PASSWORD }}" | docker login \
+            ${{ inputs.registry }} -u "${{ secrets.REGISTRY_USERNAME }}" --password-stdin
+      - run: docker push ${{ inputs.registry }}/${{ inputs.image_name }}:${{ inputs.image_tag }}

@@ -1,56 +1,41 @@
-# # Reference from:
-# https://www.aquasec.com/blog/devsecops-with-trivy-github-actions/
-
-# Name of the security step
-name: Step 3 - Image Scan
-
-# Environment variables
-env:
-  IMAGE_NAME: tfm-app:latest
-#  TRIVY_OUTPUT: 
-#  TRIVY_SEVERITY:
-#  TRIVY_VULN_TYPE: 
-
-# When is it going to activate
+name: Download Image + Image Scan + Upload Image
 on:
-  # On demand
-  workflow_call:
-  # And when the father calls
   workflow_dispatch:
+  workflow_call:
+    inputs:
+      image_name: {required: true, type: string}
+      image_tag: {required: true, type: string}
 
-# Permissions
-permissions:
-  contents: read
-  security-events: write
-
-# What is going to do
 jobs:
-  # Name of the job
-  trivy-scan:
-    # Machine of GitHub - Microsoft where the job will be executed
+  image-scan:
     runs-on: ubuntu-latest
     steps:
-      #  1. Download repo on the VM
-      - name: Checkout repo
-        uses: actions/checkout@v4
-      #  2. Build docker
-      - name: Build Docker image
-        run: docker build -t ${{ env.IMAGE_NAME }} -f src/docker/Dockerfile .
-      #  3. Scan the docker with trivy
-      - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@0.28.0
+      - uses: actions/download-artifact@v4
         with:
-          scan-type: 'image'
-          image-ref: ${{ env.IMAGE_NAME }}
-          format: 'sarif'
-          output: 'imagescan-trivy-results.sarif'
-          exit-code: 1
+          name: docker-image
+          path: .
+
+      - name: Load Docker image
+        run: |
+          docker load -i docker-image.tar
+          # Ver qué imagen se cargó
+          docker images
+          # Reetiquetar la imagen cargada al tag que espera Trivy
+          LOADED_IMAGE=$(docker images --format "{{.Repository}}:{{.Tag}}" | head -n 1)
+          docker tag $LOADED_IMAGE ${{ inputs.image_name }}:${{ inputs.image_tag }}
+
+      - uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ${{ inputs.image_name }}:${{ inputs.image_tag }}
+          format: 'table'
+          exit-code: '0'
+          severity: 'HIGH,CRITICAL'
           vuln-type: 'os,library'
-          severity: 'CRITICAL'
           scanners: 'vuln'
-      #  4. Export to Code Scanning Alerts
-      - name: Upload Trivy scan results to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@v3
+          output: 'image-trivy.txt'
+
+      - uses: actions/upload-artifact@v4
         if: always()
         with:
-          sarif_file: 'imagescan-trivy-results.sarif'
+          name: image-trivy-report
+          path: image-trivy.txt

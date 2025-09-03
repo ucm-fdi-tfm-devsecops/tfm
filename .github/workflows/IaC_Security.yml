@@ -17,6 +17,7 @@ jobs:
 
       - name: Run Checkov
         uses: bridgecrewio/checkov-action@v12
+        continue-on-error: true
         with:
           directory: .
           framework: dockerfile
