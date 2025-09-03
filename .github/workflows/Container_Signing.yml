@@ -42,20 +42,9 @@ jobs:
         run: |
           docker load -i docker-image.tar
           docker images
-          
-      - name: Generate date-based tag
-        id: date_tag
-        run: echo "IMAGE_TAG=$(date +'%Y%m%d-%H%M%S')" >> $GITHUB_ENV
 
       - name: Define IMAGE_REF
-        run: echo "IMAGE_REF=${{ inputs.registry }}/${{ inputs.image_name }}:${IMAGE_TAG}" >> $GITHUB_ENV
-
-      - name: Re-tag image
-        run: |
-          LOADED_IMAGE=$(docker images --format "{{.Repository}}:{{.Tag}}" | head -n 1)
-          echo "Imagen cargada: $LOADED_IMAGE"
-          echo "Re-etiquetando a: $IMAGE_REF"
-          docker tag $LOADED_IMAGE $IMAGE_REF
+        run: echo "IMAGE_REF=${{ inputs.registry }}/${{ inputs.image_name }}:${inputs.image_tag}" >> $GITHUB_ENV
 
       - name: Docker login
         env:
@@ -64,9 +53,6 @@ jobs:
           PASSWORD: ${{ secrets.REGISTRY_PASSWORD || secrets.GITHUB_TOKEN }}
         run: |
           echo "$PASSWORD" | docker login "$REGISTRY" -u "$USERNAME" --password-stdin
-
-      - name: Push image (unsigned)
-        run: docker push "${IMAGE_REF}"
 
       - name: Get image digest (repo digest after push)
         id: digest
