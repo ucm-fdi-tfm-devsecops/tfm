@@ -50,7 +50,7 @@ jobs: # Se usa para definir uno o más trabajos a ejecutar en el workflow.
 
   # --- Docker build espera a que acaben satisfactoriamente sca/sast/iac ---
   docker-build: # Montaje del docker.
-    needs: iac-security # Depende de que iac security acabe satisfactoriamente para poder empezar.
+    needs: [iac-security, secrets-scan] # Depende de que iac security acabe satisfactoriamente para poder empezar.
     uses: ./.github/workflows/Docker_Build.yml # Ruta del workflow donde se ejecuta el docker build.
     with:
       registry:   ${{ github.event.inputs.registry }}
