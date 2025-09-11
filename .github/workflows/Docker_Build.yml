@@ -9,9 +9,6 @@ on:
       image_name: { required: true, type: string }
       image_tag:  { required: true, type: string }
       image_tar:  { required: true, type: string }
-    #secrets:
-      #REGISTRY_USERNAME: { required: true }
-      #REGISTRY_PASSWORD: { required: true }
 
 permissions:
   contents: read
