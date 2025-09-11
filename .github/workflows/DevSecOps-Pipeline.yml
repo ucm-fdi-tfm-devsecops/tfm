@@ -73,9 +73,6 @@ jobs: # Se usa para definir uno o más trabajos (independientes o secuenciales) 
     # Para poder usar los outputs definidos en otros jobs del workflow principal, se debe establecer un need con el job donde se creo dicho output.
     # Una vez definimos en need, usamos "${{ needs.'output_job'.outputs.'output_name' }}"
       image_tag:  ${{ needs.init.outputs.image_tag }}
-    #secrets:
-      #REGISTRY_USERNAME: ${{ secrets.REGISTRY_USERNAME }}
-      #REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
 
 # -------- Bloque 4 --------
   image-scan:
