@@ -1,4 +1,4 @@
-name: Download Image + Container Signing + Push Registry
+name: Container Signing (Download + Sign + Push)
 
 on:
   workflow_call:
