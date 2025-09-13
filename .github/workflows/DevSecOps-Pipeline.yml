@@ -27,7 +27,7 @@ permissions: # Define los permisos que GitHub le da al workflow en tiempo de eje
 jobs: # Se usa para definir uno o más trabajos (independientes o secuenciales) a ejecutar. Cada job puede tener uno o varios steps, independientes o secuenciales (needs), y correr en entornos distintos (Ubuntu, Windows, MacOS).
 # -------- Bloque 1 --------  
   init: # Job de inicialización del pipeline. Este nombre se usa como ID interno del job para poder referenciarlo o establecer dependencias (needs) en otros jobs.
-    runs-on: ubuntu-latest # Runner donde se va a ejecutar el job.
+    runs-on: ubuntu-latest # Runner (maquina virtual) donde se va a ejecutar este job.
     outputs: # Define variables de salida que, posteriormente, pueden usar otros jobs que dependen de este (needs).
       image_tag: ${{ steps.tagging.outputs.tags }} # Identificador de la variable de salida generada por el paso (step).
     steps: # Uno o más pasos independientes o secuenciales que componen el job.
@@ -65,7 +65,7 @@ jobs: # Se usa para definir uno o más trabajos (independientes o secuenciales) 
   docker-build: # Montaje del docker. IMPORTANTE: Este step no es de seguridad, en el cliente ya lo tendrán hecho, pero es necesario montarlo para completar el pipeline.
     needs: [init, iac-security, secrets-scan] # Depende de que 'init', 'iac-security' y 'secrets-scan' hayan acabado satisfactoriamente, por lo que sería un bloque paralelo al de 'sca' y 'sast' al no compartir las mismas dependencias.
     uses: ./.github/workflows/Docker_Build.yml # Ruta del reusable workflow donde se ejecuta el Docker Build.
-    with: # Sirve para pasar los inputs definidos previamente al reusable workflow. En este caso necesitaremos el host del registry, el nombre de la imagen, el nombre del artifact guardaremos la imagen y el tag que utilizaremos.
+    with: # En este caso lo usaremos para pasar los inputs definidos previamente al reusable workflow. Necesitaremos el host del registry, el nombre de la imagen, el nombre del artifact guardaremos la imagen y el tag que utilizaremos.
     # Para todos los inputs definidos en el workflow principal usamos "${{ github.event.inputs.'input_name' }}"
       registry:   ${{ github.event.inputs.registry }}
       image_name: ${{ github.event.inputs.image_name }}
@@ -78,7 +78,7 @@ jobs: # Se usa para definir uno o más trabajos (independientes o secuenciales) 
   image-scan: # Escaneo de la imagen del Docker
     needs: [init, docker-build, sca, sast] # Depende de que 'init', 'docker-build', 'sca' y 'sast' hayan acabado satisfactoriamente.
     uses: ./.github/workflows/ImageScan.yml # Ruta del reusable workflow donde se ejecuta el Image Scan.
-    with: # En este caso necesitaremos el nombre de la imagen y el tag.
+    with: # En este caso necesitaremos pasar el nombre de la imagen y el tag al reusable workflow.
       image_name: ${{ github.event.inputs.image_name }}
       image_tag:  ${{ needs.init.outputs.image_tag }}
     secrets: inherit # Pasamos todos los secretos definidos en el workflow principal al reusable workflow.
@@ -87,7 +87,7 @@ jobs: # Se usa para definir uno o más trabajos (independientes o secuenciales) 
   container-signing: # Firmado del contendor
     needs: [init, image-scan] # Depende de que 'init' e 'image-scan' hayan acabado satisfactoriamente.
     uses: ./.github/workflows/Container_Signing.yml # Ruta del reusable workflow donde se ejecuta el Container Signing.
-    with: # En este caso necesitaremos el host del registry, el nombre de la imagen y el tag.
+    with: # En este caso necesitaremos pasar el host del registry, el nombre de la imagen y el tag al reusable workflow.
       registry:   ${{ github.event.inputs.registry }}
       image_name: ${{ github.event.inputs.image_name }}
       image_tag:  ${{ needs.init.outputs.image_tag }}
