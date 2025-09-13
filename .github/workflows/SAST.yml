@@ -36,6 +36,6 @@ jobs: # Se usa para definir uno o más trabajos (independientes o secuenciales) 
 
       - name: Upload SARIF to GitHub Security Dashboard
         uses: github/codeql-action/upload-sarif@v3 # Accion oficial de Github para subir informes en formato SARIF, generados por el step anterior, al Security Dashboard.
-        if: success() || failure() # De esta manera siempre se subiran los resultados al Security Dashboard, falle o no. Fallar significa que el workflow devuelva un código de error distinto a 0.
+        if: success() || failure() # De esta manera siempre se subirán los resultados al Security Dashboard, falle o no. Fallar significa que el workflow devuelva un código de error distinto a 0.
         with:
-          sarif_file: results/semgrep-results.sarif # Nombre del archivo y directorio donde se guardaron los resultados al finalizar el escaneo.
+          sarif_file: results/semgrep-results.sarif # Nombre del archivo y directorio donde se guardaron los resultados al finalizar el escaneo de Semgrep.
