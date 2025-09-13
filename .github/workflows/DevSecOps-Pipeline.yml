@@ -1,6 +1,6 @@
 name: DevSecOps Pipeline # Nombre del workflow que podremos visualizar en la pestaña de 'Actions' posteriormente cuando se ejecute.
 
-on: # Define cuando debe ejecutarse el workflow.
+on: # Define cuándo debe ejecutarse el workflow.
   workflow_dispatch: # Permite ejecutarlo manualmente desde la interfaz de GitHub.
   
     inputs: # Declara variables que pueden ser llamadas en los workflows.
@@ -33,50 +33,50 @@ jobs: # Se usa para definir uno o más trabajos (independientes o secuenciales) 
     steps: # Uno o más pasos independientes o secuenciales que componen el job.
       - name: Generate Image Tag # Nombre del paso.
         id: tagging # ID de referencia de la salida.
-        # run: permite ejecutar comandos en shell directamente en el runner, en este caso buscamos generar un tag unico, por lo que utilizaremos la fecha completa del momento en el que se ejecute este job.
+        # 'run:' permite ejecutar comandos en shell directamente en el runner, en este caso buscamos generar un tag unico, por lo que utilizaremos la fecha completa del momento en el que se ejecute este job.
         run: |
           echo "tags=$(date +'%Y%m%d-%H%M%S')" >> $GITHUB_OUTPUT
           
 # -------- Bloque 2 --------  
-  secrets-scan: # Analisis de secretos
+  secrets-scan: # Análisis de secretos.
     needs: init # Sirve para establecer dependencias, es decir, si hubiese algun problema en la ejecución del job 'init' y fallase, este paso no se ejecutaría y el workflow pararía.
     uses: ./.github/workflows/Secrets_Scan.yml # Sirve para definir una acción existente de Github o personalizada como en este caso, ya que reutilizamos a otro flujo de trabajo (conocido como "reusable workflow").
     secrets: # Se utiliza para pasar secretos desde este workflow principal al reusable workflow definido previamente en 'uses:', 'Secrets_Scan.yml'.
       gitleaks_license: ${{ secrets.GITLEAKS_LICENSE }} # Extraemos el secreto que necesitamos, definido previamente en los secretos del repositorio.
       
-  iac-security: # Analisis de la infraestructura como códgo.
-    needs: init # Establecemos dependencia con el init para que se pueda ejecutar, de tal forma que se realizaría en paralelo con el 'secrets-scan'.
-    uses: ./.github/workflows/IaC_Security.yml # Ruta del reusable workflow donde se ejecuta el iac security.
-    secrets: inherit # Lo utilizamos para pasar todos los secretos definidos en el workflow principal al reusable workflow, sin tener que listarlos como en el job anterior del secrets scan.
+  iac-security: # Seguridad de la infraestructura como códgo.
+    needs: init # Establecemos dependencia con el step 'init' para que se pueda ejecutar, de tal forma que se realizaría en paralelo con el 'secrets-scan'.
+    uses: ./.github/workflows/IaC_Security.yml # Ruta del reusable workflow donde se ejecuta el IaC Security.
+    secrets: inherit # Lo utilizamos para pasar todos los secretos definidos en el workflow principal al reusable workflow, sin tener que listarlos como en el job anterior del Secrets Scan.
 
 # -------- Bloque 3 --------
   # ------ Bloque 3.1 ------
-  sca: # Analisis de dependencias de terceros
-    needs: [iac-security, secrets-scan] # En este caso, para que pueda ejecutarse el 'sca', dependemos de que 'iac-security' y 'secrets-scan' hayan acabado satisfactoriamente para poder ejecutarse.
+  sca: # Análisis de Composición de Software, básicamente un análisis de dependencias de terceros.
+    needs: [iac-security, secrets-scan] # En este caso, para que pueda ejecutarse el 'sca', dependemos de que los jobs de 'iac-security' y 'secrets-scan' hayan acabado satisfactoriamente para poder ejecutarse.
     uses: ./.github/workflows/SCA.yml # Ruta del reusable workflow donde se ejecuta el SCA.
     secrets: inherit # Pasamos todos los secretos definidos en el workflow principal al reusable workflow.
 
-  sast: # Analisis estático de vulnerabilidadees en el código.
-    needs: [iac-security, secrets-scan] # Al depender tambien de que se completen satisfactoriamente 'iac-security' y 'secrets-scan', se ejecutaría en paralelo al 'sca'.
+  sast: # Pruebas estáticas de seguridad de aplicaciones, básicamente un análisis estático de vulnerabilidades en el código.
+    needs: [iac-security, secrets-scan] # Al depender también de que se completen satisfactoriamente 'iac-security' y 'secrets-scan', se ejecutaría en paralelo al 'sca'.
     uses: ./.github/workflows/SAST.yml # Ruta del reusable workflow donde se ejecuta el SAST.
     secrets: inherit # Pasamos todos los secretos definidos en el workflow principal al reusable workflow.
 
   # ------ Bloque 3.2 ------
-  docker-build: # Montaje del docker. IMPORTANTE: Este step no es de seguridad, en el cliente ya lo tendrán hecho, pero es necesario montarlo para completar el pipeline.
-    needs: [init, iac-security, secrets-scan] # Depende de que 'init', 'iac-security' y 'secrets-scan' hayan acabado satisfactoriamente, por lo que sería un bloque paralelo al de 'sca' y 'sast' al no compartir las mismas dependencias.
+  docker-build: # Montaje del docker. IMPORTANTE: Este step no es de seguridad, en el cliente ya lo tendrán hecho, pero es necesario montarlo para completar el Pipeline.
+    needs: [init, iac-security, secrets-scan] # Depende de que los jobs de 'init', 'iac-security' y 'secrets-scan' hayan acabado satisfactoriamente, por lo que se ejecutaría en paralelo al del 'sca' y 'sast' al no compartir las mismas dependencias.
     uses: ./.github/workflows/Docker_Build.yml # Ruta del reusable workflow donde se ejecuta el Docker Build.
     with: # En este caso lo usaremos para pasar los inputs definidos previamente al reusable workflow. Necesitaremos el host del registry, el nombre de la imagen, el nombre del artifact guardaremos la imagen y el tag que utilizaremos.
-    # Para todos los inputs definidos en el workflow principal usamos "${{ github.event.inputs.'input_name' }}"
+    # Para todos los inputs definidos en el workflow principal usamos "${{ github.event.inputs.'input_name' }}".
       registry:   ${{ github.event.inputs.registry }}
       image_name: ${{ github.event.inputs.image_name }}
       image_tar:  ${{ github.event.inputs.image_tar }}
     # Para poder usar los outputs definidos en otros jobs del workflow principal, se debe establecer un need con el job donde se creo dicho output.
-    # Una vez definimos en need, usamos "${{ needs.'output_job'.outputs.'output_name' }}"
+    # Una vez definimos en need, usamos "${{ needs.'output_job'.outputs.'output_name' }}".
       image_tag:  ${{ needs.init.outputs.image_tag }}
 
 # -------- Bloque 4 --------
   image-scan: # Escaneo de la imagen del Docker
-    needs: [init, docker-build, sca, sast] # Depende de que 'init', 'docker-build', 'sca' y 'sast' hayan acabado satisfactoriamente.
+    needs: [init, docker-build, sca, sast] # Depende de que los jobs de 'init', 'docker-build', 'sca' y 'sast' hayan acabado satisfactoriamente.
     uses: ./.github/workflows/ImageScan.yml # Ruta del reusable workflow donde se ejecuta el Image Scan.
     with: # En este caso necesitaremos pasar el nombre de la imagen y el tag al reusable workflow.
       image_name: ${{ github.event.inputs.image_name }}
@@ -84,7 +84,7 @@ jobs: # Se usa para definir uno o más trabajos (independientes o secuenciales) 
     secrets: inherit # Pasamos todos los secretos definidos en el workflow principal al reusable workflow.
 
 # -------- Bloque 5 --------
-  container-signing: # Firmado del contendor
+  container-signing: # Firmado del contendor.
     needs: [init, image-scan] # Depende de que 'init' e 'image-scan' hayan acabado satisfactoriamente.
     uses: ./.github/workflows/Container_Signing.yml # Ruta del reusable workflow donde se ejecuta el Container Signing.
     with: # En este caso necesitaremos pasar el host del registry, el nombre de la imagen y el tag al reusable workflow.
