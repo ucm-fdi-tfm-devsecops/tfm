@@ -65,7 +65,7 @@ jobs: # Se usa para definir uno o más trabajos (independientes o secuenciales) 
   docker-build: # Montaje del docker.
     needs: [init, iac-security, secrets-scan] # Depende de que 'init', 'iac-security' y 'secrets-scan' hayan acabado satisfactoriamente, por lo que sería un bloque paralelo al de 'sca' y 'sast' al no compartir las mismas dependencias.
     uses: ./.github/workflows/Docker_Build.yml # Ruta del reusable workflow donde se ejecuta el Docker Build.
-    with: # Sirve para pasar los inputs definidos previamente al reusable workflow.
+    with: # Sirve para pasar los inputs definidos previamente al reusable workflow. En este caso necesitaremos el host del registry, el nombre de la imagen, el nombre del artifact guardaremos la imagen y el tag que utilizaremos.
     # Para todos los inputs definidos en el workflow principal usamos "${{ github.event.inputs.'input_name' }}"
       registry:   ${{ github.event.inputs.registry }}
       image_name: ${{ github.event.inputs.image_name }}
@@ -75,20 +75,20 @@ jobs: # Se usa para definir uno o más trabajos (independientes o secuenciales) 
       image_tag:  ${{ needs.init.outputs.image_tag }}
 
 # -------- Bloque 4 --------
-  image-scan:
-    needs: [init, docker-build, sca, sast]
-    uses: ./.github/workflows/ImageScan.yml
-    with:
+  image-scan: # Escaneo de la imagen del Docker
+    needs: [init, docker-build, sca, sast] # Depende de que 'init', 'docker-build', 'sca' y 'sast' hayan acabado satisfactoriamente.
+    uses: ./.github/workflows/ImageScan.yml # Ruta del reusable workflow donde se ejecuta el Image Scan.
+    with: # En este caso necesitaremos el nombre de la imagen y el tag.
       image_name: ${{ github.event.inputs.image_name }}
       image_tag:  ${{ needs.init.outputs.image_tag }}
-    secrets: inherit
+    secrets: inherit # Pasamos todos los secretos definidos en el workflow principal al reusable workflow.
 
 # -------- Bloque 5 --------
-  container-signing:
-    needs: [init, image-scan]
-    uses: ./.github/workflows/Container_Signing.yml
-    with:
+  container-signing: # Firmado del contendor
+    needs: [init, image-scan] # Depende de que 'init' e 'image-scan' hayan acabado satisfactoriamente.
+    uses: ./.github/workflows/Container_Signing.yml # Ruta del reusable workflow donde se ejecuta el Container Signing.
+    with: # En este caso necesitaremos el host del registry, el nombre de la imagen y el tag.
       registry:   ${{ github.event.inputs.registry }}
       image_name: ${{ github.event.inputs.image_name }}
       image_tag:  ${{ needs.init.outputs.image_tag }}
-    secrets: inherit
+    secrets: inherit # Pasamos todos los secretos definidos en el workflow principal al reusable workflow.
