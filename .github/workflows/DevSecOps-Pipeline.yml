@@ -62,7 +62,7 @@ jobs: # Se usa para definir uno o más trabajos (independientes o secuenciales) 
     secrets: inherit # Pasamos todos los secretos definidos en el workflow principal al reusable workflow.
 
   # ------ Bloque 3.2 ------
-  docker-build: # Montaje del docker.
+  docker-build: # Montaje del docker. IMPORTANTE: Este step no es de seguridad, en el cliente ya lo tendrán hecho, pero es necesario montarlo para completar el pipeline.
     needs: [init, iac-security, secrets-scan] # Depende de que 'init', 'iac-security' y 'secrets-scan' hayan acabado satisfactoriamente, por lo que sería un bloque paralelo al de 'sca' y 'sast' al no compartir las mismas dependencias.
     uses: ./.github/workflows/Docker_Build.yml # Ruta del reusable workflow donde se ejecuta el Docker Build.
     with: # Sirve para pasar los inputs definidos previamente al reusable workflow. En este caso necesitaremos el host del registry, el nombre de la imagen, el nombre del artifact guardaremos la imagen y el tag que utilizaremos.
