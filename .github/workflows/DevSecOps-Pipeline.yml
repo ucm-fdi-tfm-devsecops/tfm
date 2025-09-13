@@ -26,7 +26,7 @@ permissions: # Define los permisos que GitHub le da al workflow en tiempo de eje
 
 jobs: # Se usa para definir uno o más trabajos (independientes o secuenciales) a ejecutar. Cada job puede tener uno o varios steps, independientes o secuenciales (needs), y correr en entornos distintos (Ubuntu, Windows, MacOS).
 # -------- Bloque 1 --------  
-  init: # job de inicialización del pipeline.
+  init: # Job de inicialización del pipeline. Este nombre se usa como ID interno del job para poder referenciarlo o establecer dependencias (needs) en otros jobs.
     runs-on: ubuntu-latest # Runner donde se va a ejecutar el job.
     outputs: # Define variables de salida que, posteriormente, pueden usar otros jobs que dependen de este (needs).
       image_tag: ${{ steps.tagging.outputs.tags }} # Identificador de la variable de salida generada por el paso (step).
