@@ -21,5 +21,3 @@ jobs: # Se usa para definir uno o más trabajos (independientes o secuenciales) 
           project: "tfm" # Definimos el nombre del proyecto en los reportes, aparecerá como una etiqueta en el informe generado.
           path: "." # Especificamos la ruta del código a analizar, en este caso la raíz del repositorio.
           format: "HTML" # Indicamos el formato de salida del reporte
-          # Parámetros OPCIONALES segun la documentación de la accion que estamos usando:
-          # out: "reports" # Definimos la carpeta de salida donde se guardará el reporte (se guardaría como "reports/dependency-check-report.html")
