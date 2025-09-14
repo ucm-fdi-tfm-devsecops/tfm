@@ -8,13 +8,12 @@ jobs: # Se usa para definir uno o más trabajos (independientes o secuenciales) 
   semgrep-sast: # Pruebas estáticas de seguridad de aplicaciones con Semgrep. Este nombre se usa como ID interno del job para poder referenciarlo o establecer dependencias (needs) en otros jobs.
     name: Semgrep SAST
     runs-on: ubuntu-latest # Runner (maquina virtual) donde se va a ejecutar este job.
-
+    
     permissions: # Define los permisos que GitHub le da al workflow en tiempo de ejecución.
       contents: read # Permite el acceso de lectura al código fuente del repositorio.
       security-events: write # Permite poder subir los resultados del escaneo (en formato .SARIF) al Security Dashboard de GitHub.
 
     steps: # Se usa para definir uno o más pasos que se deben ejecutar, de manera independiente o secuencial, para realizar el job.
-      
       - name: Checkout repository
         uses: actions/checkout@v4 # Acción oficial para descargarnos el código del repositorio en el runner de GitHub Actions para que los siguientes steps tengan acceso a el.
 
