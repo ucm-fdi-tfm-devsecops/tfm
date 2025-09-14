@@ -43,9 +43,6 @@ jobs:
           docker load -i docker-image.tar
           docker images
 
-     # - name: Define IMAGE_REF
-       # run: echo "IMAGE_REF=${{ inputs.registry }}/${{ inputs.image_name }}:${{ inputs.image_tag }}" >> $GITHUB_ENV
-
       - name: Docker login
         env:
           REGISTRY: ${{ inputs.registry }}
