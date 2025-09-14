@@ -7,6 +7,7 @@ on: # Define cuando debe ejecutarse el workflow.
 jobs: # Se usa para definir uno o más trabajos (independientes o secuenciales) a ejecutar. Cada job puede tener uno o varios steps, independientes o secuenciales (needs), y correr en entornos distintos (Ubuntu, Windows, MacOS).
   checkov: # Seguridad de Infraestructura como Código con Checkov. Este nombre se usa como ID interno del job para poder referenciarlo o establecer dependencias (needs) en otros jobs.
     runs-on: ubuntu-latest # Runner (maquina virtual) donde se va a ejecutar este job.
+    
     permissions: # Define los permisos que GitHub le da al workflow en tiempo de ejecución.
       contents: read # Permite el acceso de lectura al código fuente del repositorio.
       security-events: write # Permite poder subir los resultados del escaneo (en formato .SARIF) al Security Dashboard de GitHub.
