@@ -9,13 +9,11 @@ jobs: # Se usa para definir uno o más trabajos (independientes o secuenciales) 
     runs-on: ubuntu-latest # Runner (máquina virtual) donde se va a ejecutar este job.
     
     steps: # Se usa para definir uno o más pasos que se deben ejecutar, de manera independiente o secuencial, para realizar el job.
-    
       - name: Checkout repository
         uses: actions/checkout@v4 # Acción oficial para descargarnos el código del repositorio en el runner de GitHub Actions para que los siguientes steps tengan acceso a el.
 
       - name: Run OWASP Dependency-Check
         uses: dependency-check/Dependency-Check_Action@main # Usamos la acción oficial de GitHub para ejecutar OWASP Dependency-Check.
-        
         with: # En este caso necesitaremos pasar unos parámetros de configuración obligatorios para que pueda finalizar correctamente.
           # Parámetros OBLIGATORIOS según la documentación de la acción que estamos usando:
           project: "tfm" # Definimos el nombre del proyecto en los reportes, aparecerá como una etiqueta en el informe generado.
