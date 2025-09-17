@@ -1,25 +1,21 @@
-name: Step 2.1 - SCA # Nombre descriptivo que se visualizará en el menú de actions una vez se lance el workflow.
+name: Step 2.1 - SCA # Nombre del workflow que podremos visualizar en la pestaña de 'Actions' posteriormente cuando se ejecute.
 
-on:
-  workflow_call: # Para que otros workflows puedan llamarlo.
-  workflow_dispatch: # Para lanzar unicamente el workflow de manera manual.
+on: # Define cuando debe ejecutarse el workflow.
+  workflow_call: # Permite que otros workflows puedan llamarlo desde el mismo repositorio o desde repositorios diferentes.
+  workflow_dispatch: # Permite ejecutarlo manualmente desde la interfaz de GitHub.
 
-jobs: # Se usa para definir uno o más trabajos a ejecutar en el workflow.
-  dependency-check: # ID interno del job para poder referenciarlo o establecer depoendencias con/en otros jobs.
-    runs-on: ubuntu-latest # Indica en qué tipo de runner (maquina virtual) se va a ejecutar este job.
+jobs: # Se usa para definir uno o más trabajos (independientes o secuenciales) a ejecutar. Cada job puede tener uno o varios steps, independientes o secuenciales (needs), y correr en entornos distintos (Ubuntu, Windows, MacOS).
+  dependency-check: # Escaneo de dependencias de terceros con OWASP Dependency-Check. Este nombre se usa como ID interno del job para poder referenciarlo o establecer dependencias (needs) en otros jobs.
+    runs-on: ubuntu-latest # Runner (máquina virtual) donde se va a ejecutar este job.
     
-    steps: # Se usa para definir el paso o los pasos que se deben ejecutar, uno a uno y en orden, para realizar el job.
-    
-      - name: Checkout repo
-      # Descargamos el codigo del repositorio en el runner de GitHub Actions para que los siguientes steps tengan acceso.
-        uses: actions/checkout@v4
+    steps: # Se usa para definir uno o más pasos que se deben ejecutar, de manera independiente o secuencial, para realizar el job.
+      - name: Checkout repository
+        uses: actions/checkout@v4 # Acción oficial para descargarnos el código del repositorio en el runner de GitHub Actions para que los siguientes steps tengan acceso a el.
 
       - name: Run OWASP Dependency-Check
-      # Usamos la acción oficial de GitHub para ejecutar OWASP Dependency-Check
-        uses: dependency-check/Dependency-Check_Action@main
-        
-        with:
+        uses: dependency-check/Dependency-Check_Action@main # Usamos la acción oficial de GitHub para ejecutar OWASP Dependency-Check.
+        with: # En este caso necesitaremos pasar unos parámetros de configuración obligatorios para que pueda finalizar correctamente.
+          # Parámetros OBLIGATORIOS según la documentación de la acción que estamos usando:
           project: "tfm" # Definimos el nombre del proyecto en los reportes, aparecerá como una etiqueta en el informe generado.
           path: "." # Especificamos la ruta del código a analizar, en este caso la raíz del repositorio.
-          format: "HTML" # Indicamos el formato de salida del reporte
-          out: "reports" # Definimos la carpeta de salida donde se guardará el reporte (se guardaría como "reports/dependency-check-report.html")
+          format: "HTML" # Indicamos el formato de salida del reporte.

@@ -1,4 +1,4 @@
-name: Download Image + Container Signing + Push Registry
+name: Container Signing (Download + Sign + Push)
 
 on:
   workflow_call:
@@ -42,9 +42,6 @@ jobs:
         run: |
           docker load -i docker-image.tar
           docker images
-
-      - name: Define IMAGE_REF
-        run: echo "IMAGE_REF=${{ inputs.registry }}/${{ inputs.image_name }}:${{ inputs.image_tag }}" >> $GITHUB_ENV
 
       - name: Docker login
         env:

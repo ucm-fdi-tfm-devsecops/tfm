@@ -1,38 +1,35 @@
-name: Step 5 - IaC Security
+name: Step 5 - IaC Security # Nombre del workflow que podremos visualizar en la pestaña de 'Actions' posteriormente cuando se ejecute.
 
-on:
-  workflow_call:
-  workflow_dispatch:
+on: # Define cuando debe ejecutarse el workflow.
+  workflow_call: # Permite que otros workflows puedan llamarlo desde el mismo repositorio o desde repositorios diferentes.
+  workflow_dispatch: # Permite ejecutarlo manualmente desde la interfaz de GitHub.
 
-jobs:
-
-  checkov:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read # for actions/checkout to fetch code
-      security-events: write # for github/codeql-action/upload-sarif to upload SARIF results
-    steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
+jobs: # Se usa para definir uno o más trabajos (independientes o secuenciales) a ejecutar. Cada job puede tener uno o varios steps, independientes o secuenciales (needs), y correr en entornos distintos (Ubuntu, Windows, MacOS).
+  checkov: # Seguridad de Infraestructura como Código con Checkov. Este nombre se usa como ID interno del job para poder referenciarlo o establecer dependencias (needs) en otros jobs.
+    runs-on: ubuntu-latest # Runner (maquina virtual) donde se va a ejecutar este job.
+    
+    permissions: # Define los permisos que GitHub le da al workflow en tiempo de ejecución.
+      contents: read # Permite el acceso de lectura al código fuente del repositorio.
+      security-events: write # Permite poder subir los resultados del escaneo (en formato .SARIF) al Security Dashboard de GitHub.
+      
+    steps: # Se usa para definir uno o más pasos que se deben ejecutar, de manera independiente o secuencial, para realizar el job.
+      - name: Checkout repository
+        uses: actions/checkout@v4 # Acción oficial para descargarnos el código del repositorio en el runner de GitHub Actions para que los siguientes steps tengan acceso a el.
 
       - name: Run Checkov
-        uses: bridgecrewio/checkov-action@v12
+        uses: bridgecrewio/checkov-action@v12 # Usamos la acción oficial de GitHub para ejecutar Checkov.
         continue-on-error: true
-        with:
-          directory: .
-          framework: dockerfile
-          soft_fail: false   # Falla el job si hay problemas
-          output_format: cli,sarif
-          output_file_path: console,results.sarif
+        with: # En este caso necesitaremos pasar un parámetro de configuración obligatorio para que pueda finalizar correctamente, los demás son opcionales y en función de lo que se vaya a escanear.
+          # Parámetro OBLIGATORIO según la documentación de la acción que estamos usando:
+          directory: . # Especificamos qué queremos analizar, en este caso la raiz del repositorio.
+          # Parámetros OPCIONALES configurados ad hoc para nuestro repositorio.
+          framework: dockerfile # Por defecto lo detecta automáticamente (terraform, kubernetes, dockerfile, etc.). Pero en nuestro caso como solo queremos analizar un dockerfile, lo forzamos.
+          soft_fail: false   # Controla si el Pipeline debe fallar (false) o continuar (true) en caso de encontrar errores o vulnerabilidades.
+          output_format: cli,sarif # Define el formato de los resultados, por defecto es 'cli' ya que los muestra por consola. Nosotros añadimos 'sarif' porque queremos que también se muestre en el apartado de Code Scanning.
+          output_file_path: console,results.sarif # Sirve para exportar resultados a ficheros, por defecto lo muestra en la consola. Nosotros añadimos 'results.sarif' para poder subirlo en otro step al apartado de Code Scanning.
         
-      - name: Upload SARIF file
-        uses: github/codeql-action/upload-sarif@v3
-        
-        # Results are generated only on a success or failure
-        # this is required since GitHub by default won't run the next step
-        # when the previous one has failed. Security checks that do not pass will 'fail'.
-        # An alternative is to add `continue-on-error: true` to the previous step
-        # Or 'soft_fail: true' to checkov.
-        if: success() || failure()
+      - name: Upload SARIF to GitHub Security Dashboard
+        uses: github/codeql-action/upload-sarif@v3 # Acción oficial de Github para subir informes en formato SARIF, generados por el step anterior, al Security Dashboard.
+        if: success() || failure() # De esta manera siempre se subirán los resultados al Security Dashboard, falle o no. Fallar significa que el workflow devuelva un código de error distinto a 0.
         with:
-          sarif_file: results.sarif
+          sarif_file: results.sarif # Nombre del archivo donde se guardaron los resultados al finalizar el escaneo de Checkov.

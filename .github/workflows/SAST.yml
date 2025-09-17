@@ -1,31 +1,29 @@
-name: Step 2.2 - SAST # Nombre descriptivo que se visualizará en el menú de actions una vez se lance el workflow.
+name: Step 2.2 - SAST # Nombre del workflow que podremos visualizar en la pestaña de 'Actions' posteriormente cuando se ejecute.
 
-on:
-  workflow_call: # Para que otros workflows puedan llamarlo.
-  workflow_dispatch: # Para lanzar unicamente el workflow de manera manual.
+on: # Define cuando debe ejecutarse el workflow.
+  workflow_call: # Permite que otros workflows puedan llamarlo desde el mismo repositorio o desde repositorios diferentes.
+  workflow_dispatch: # Permite ejecutarlo manualmente desde la interfaz de GitHub.
 
-jobs: # Se usa para definir uno o más trabajos a ejecutar en el workflow.
-  semgrep-sast: # ID interno del job para poder referenciarlo o establecer depoendencias con/en otros jobs.
-    name: Semgrep SAST Analysis
-    runs-on: ubuntu-latest # Indica en qué tipo de runner (maquina virtual) se va a ejecutar este job.
+jobs: # Se usa para definir uno o más trabajos (independientes o secuenciales) a ejecutar. Cada job puede tener uno o varios steps, independientes o secuenciales (needs), y correr en entornos distintos (Ubuntu, Windows, MacOS).
+  semgrep-sast: # Pruebas estáticas de seguridad de aplicaciones con Semgrep. Este nombre se usa como ID interno del job para poder referenciarlo o establecer dependencias (needs) en otros jobs.
+    name: Semgrep SAST
+    runs-on: ubuntu-latest # Runner (maquina virtual) donde se va a ejecutar este job.
+    
+    permissions: # Define los permisos que GitHub le da al workflow en tiempo de ejecución.
+      contents: read # Permite el acceso de lectura al código fuente del repositorio.
+      security-events: write # Permite poder subir los resultados del escaneo (en formato .SARIF) al Security Dashboard de GitHub.
 
-    permissions:
-      contents: read # Permite poder acceder al código fuente del repositorio.
-      security-events: write # Permite poder subir los resultados del escaneo (SARIF) al Security Dashboard de GitHub.
-
-    steps:
-      
+    steps: # Se usa para definir uno o más pasos que se deben ejecutar, de manera independiente o secuencial, para realizar el job.
       - name: Checkout repository
-      # Descargamos el codigo del repositorio en el runner de GitHub Actions para que los siguientes steps tengan acceso.
-        uses: actions/checkout@v4
+        uses: actions/checkout@v4 # Acción oficial para descargarnos el código del repositorio en el runner de GitHub Actions para que los siguientes steps tengan acceso a el.
 
       - name: Install Semgrep
-      # Instalamos Semgrep en el runner para que, via Python, pueda utilizar el comando "semgrep".
-        run: pipx install semgrep
+        run: pipx install semgrep # Instalamos Semgrep en el runner para que, via Python, pueda utilizar el comando "semgrep".
 
       - name: Run Semgrep SAST
-      # Ejecutamos el semgrep para realizar el analisis estático de seguridad con los siguientes parámetros:
-        # mkdir -p results -> Creamos el directorio que se usará como output de los resultados.
+      # Antes de lanzar el análisis, necesitamos crear un directorio que se usará como output de los resultados, para ello usamos:
+        # mkdir -p results
+      # Acto seguido, ejecutamos semgrep para realizar las pruebas estáticas de seguridad de aplicaciones con los siguientes parámetros:
         # semgrep scan -> lanza semgrep en modo SAST.
         # --config auto -> Elige las reglas automaticamente en función del lenguaje detectado en el repositorio.
         # --sarif -> Genera la salida en formato SARIF, estándar soportado por GitHub Security Dashboard.
@@ -36,10 +34,7 @@ jobs: # Se usa para definir uno o más trabajos a ejecutar en el workflow.
           semgrep scan --config auto --sarif --output results/semgrep-results.sarif .
 
       - name: Upload SARIF to GitHub Security Dashboard
-      # Usamos la accion oficial de Github para subir informes en formato SARIF, generados por el step anterior, al Security Dashboard.
-        uses: github/codeql-action/upload-sarif@v3
-        # Tanto si falla el escaneo como si termina correctamente, este step se ejecuta siempre.
-        # Fallar implica que el workflow devuelva un codigo de error distinto a 0.
-        if: success() || failure()
+        uses: github/codeql-action/upload-sarif@v3 # Accion oficial de Github para subir informes en formato SARIF, generados por el step anterior, al Security Dashboard.
+        if: success() || failure() # De esta manera siempre se subirán los resultados al Security Dashboard, falle o no. Fallar significa que el workflow devuelva un código de error distinto a 0.
         with:
-          sarif_file: results/semgrep-results.sarif # Nombre del archivo y directorio donde se guardaron los resultados al finalizar el escaneo.
+          sarif_file: results/semgrep-results.sarif # Nombre del archivo y directorio donde se guardaron los resultados al finalizar el escaneo de Semgrep.
